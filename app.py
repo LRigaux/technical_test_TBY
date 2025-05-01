@@ -362,7 +362,7 @@ if isinstance(st.session_state.processing_results, dict) and st.session_state.pr
     # affichage détaillé dans des expanders pour garder l'interface propre
     st.subheader("Détails par produit traité")
     for index, res_row in df_results.iterrows():
-        # Utiliser l'ID produit comme titre de section si disponible
+        # utiliser l'ID produit comme titre de section si disponible
         product_id_display = res_row.get("product_id", f"Ligne {index+1}")
         with st.expander(f"**Produit ID: {product_id_display}**", expanded=False):
             col_res1, col_res2 = st.columns(2)
@@ -382,6 +382,8 @@ if isinstance(st.session_state.processing_results, dict) and st.session_state.pr
                     st.caption("Pas d'image source valide")
 
             with col_res2:
+                st.write("**Titre généré:**")
+                st.caption(res_row.get("generated_title", "N/A"))
                 st.write("**Description améliorée:**")
                 st.markdown(
                     res_row.get(
