@@ -1,0 +1,56 @@
+# Python virtual environment
+ai_venv/
+__pycache__/
+
+# Langchain specific
+langchain_cache/
+
+# DuckDB specific
+*.duckdb
+*.duckdb-wal
+
+# ChromaDB specific
+chromadb/
+
+# Streamlit specific
+.streamlit/
+
+# General Python
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.pdb
+*.egg-info/
+dist/
+build/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# macOS specific
+.DS_Store
+
+# Windows specific
+Thumbs.db
+
+# Logs
+*.log
+
+# IDE specific
+.idea/
+.vscode/
+
+# Git specific
+*.orig
+*.rej
+*.swo
+*.swp
+*.swn
+*.bak
+*.tmp
+*.temp
+*.old
+*.backup
+
+.env
