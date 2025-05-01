@@ -6,7 +6,9 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(BASE_DIR, "data")
 DB_FILE = os.path.join(DATA_DIR, "product_data.duckdb")
 IMAGE_DIR = os.path.join(DATA_DIR, "processed_images")
-PROMPT_FILE = os.path.join(DATA_DIR, "prompt.txt")
+# PROMPT_FILE = os.path.join(DATA_DIR, "prompt.txt")
+PROMPT_FILE = os.path.join(DATA_DIR, "prompt_v2.txt")
+
 
 # --- LLM ---
 # Modèle par défaut (peut être surchargé dans l'UI)

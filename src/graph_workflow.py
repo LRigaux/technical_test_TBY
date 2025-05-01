@@ -78,63 +78,106 @@ def map_selected_data(state: WorkflowState) -> WorkflowState:
     state["errors"] = errors
     return state
 
-# --- Noeud: generate_missing_titles (Peu de changements requis) ---
+# --- Noeud: generate_missing_titles  ---
 def generate_missing_titles(state: WorkflowState) -> WorkflowState:
-    """Génère des titres si manquants en utilisant le LLM."""
     print("--- Node: generate_missing_titles ---")
     mapped_data = state.get("mapped_data", [])
     llm = state.get("llm_client")
     errors = state.get("errors", [])
 
-    # Ajout d'une vérification explicite si mapped_data est vide
-    if not mapped_data:
-        print("Aucune donnée mappée disponible, skip title generation.")
-        return state
-    if not llm:
-        print("LLM non disponible, skip title generation.")
-        # On pourrait ajouter une erreur ici si le LLM est essentiel
-        # errors.append("LLM non initialisé, impossible de générer les titres.")
-        # state['errors'] = errors
-        return state  # On continue quand même pour les autres étapes si possible
+    if not mapped_data: return state
+    if not llm: return state
 
-    # Le reste de la logique est identique...
-    title_prompt_template = PromptTemplate.from_template(
-        "Basé sur la description suivante d'un produit, génère un titre court et accrocheur (max 10 mots) en français.\n\nDescription:\n{description}\n\nTitre:"
-    )
+    # --- Prompt encore plus directif (à essayer !) ---
+
+    prompt_string_option_1 = """**TACHE STRICTE : GENERATION DE TITRE PRODUIT**
+        **ENTREE :** Une description de produit de prêt-à-porter.
+        **SORTIE ATTENDUE :** UN SEUL titre court (5-10 mots), accrocheur et descriptif en français.
+        **REGLES ABSOLUES :**
+        1. Ta réponse doit contenir **UNIQUEMENT LE TITRE GÉNÉRÉ**.
+        2. **AUCUN** texte avant ou après le titre.
+        3. **AUCUNE** explication, justification, commentaire, question, ou suggestion alternative.
+        4. **AUCUNE** mise en forme spéciale (pas de guillemets, pas d'astérisques, pas de listes).
+        5. Le titre doit être basé **UNIQUEMENT** sur la description fournie.
+        6. Ne termine pas par un point.
+        **Description du Produit :**
+        {description}
+        **Titre (Réponse Unique et Directe) :**"""
+    
+    prompt_string_option_2 = """**Rôle :** Générateur de titres produits E-commerce.
+        **Objectif :** Créer UN titre optimisé pour un produit de mode.
+
+        **Instructions :**
+        1.  Analyse la `{description}` produit fournie.
+        2.  Génère UN SEUL titre en français :
+            *   Court : 5 à 10 mots maximum.
+            *   Accrocheur : Donne envie de cliquer.
+            *   Descriptif : Mentionne la caractéristique principale (type, couleur, matière ou motif).
+        3.  **Format de Réponse :** Ta réponse doit être **UNIQUEMENT LE TITRE**, sans aucun autre texte, formatage, ou commentaire.
+        **REGLES ABSOLUES :**
+        1. Ta réponse doit contenir **UNIQUEMENT LE TITRE GÉNÉRÉ**.
+        2. **AUCUN** texte avant ou après le titre.
+        3. **AUCUNE** explication, justification, commentaire, question, ou suggestion alternative.
+        4. **AUCUNE** mise en forme spéciale (pas de guillemets, pas d'astérisques, pas de listes).
+        5. Le titre doit être basé **UNIQUEMENT** sur la description fournie.
+        6. Ne termine pas par un point.
+        
+        **Exemple :**
+        Description : Pull doux en cachemire bleu marine avec un col rond classique. Parfait pour l'hiver. Tricoté en Italie.
+        Titre : Pull Cachemire Bleu Marine Col Rond Classique
+
+        **Description du Produit :**
+        {description}
+
+        **Titre Généré :**"""
+
+    title_prompt_template = PromptTemplate.from_template(prompt_string_option_2)
+    # -------------------------------------------------
     title_chain = title_prompt_template | llm
 
     updated_data = []
+    conversational_starts = ["voici", "je recommande", "quel titre", "*", "-", "titre:", "option"] # Mots/symboles à ignorer au début des lignes
+
     for item in mapped_data:
-        # ... (logique existante pour vérifier et générer le titre) ...
-        # Vérifie si 'title' existe et n'est pas vide/NaN
-        if (
-            pd.isna(item.get("title")) or not str(item.get("title", "")).strip()
-        ):  # Vérification plus robuste
+        if pd.isna(item.get("title")) or not str(item.get("title", "")).strip():
             cleaned_desc = clean_html(item.get("body_html", ""))
             if cleaned_desc:
                 try:
                     print(f"Génération titre pour produit ID: {item.get('product_id', 'Inconnu')}")
-                    # L'appel invoke retourne un objet AIMessage (ou similaire)
                     response_message = title_chain.invoke({"description": cleaned_desc})
 
-                    # --- Extraction du contenu ---
+                    extracted_content = ""
                     if hasattr(response_message, 'content'):
-                        raw_title_response = str(response_message.content).strip()
-                    else: # Fallback si ce n'est pas un objet message standard
-                        raw_title_response = str(response_message).strip()
-                    # ---------------------------
+                        extracted_content = str(response_message.content).strip()
+                    else:
+                        extracted_content = str(response_message).strip()
 
-                    # Prendre la première ligne non vide comme titre potentiel
-                    possible_title = raw_title_response.splitlines()[0].strip().replace('"', '')
-                    # Optionnel: Limiter la longueur
-                    max_title_length = 70
+                    # --- Logique de Parsing Améliorée ---
+                    possible_title = "Titre non extrait" # Default
+                    lines = extracted_content.splitlines()
+                    for line in lines:
+                        clean_line = line.strip().replace('"', '').replace("'", "")
+                        # Ignorer les lignes vides ou trop courtes
+                        if not clean_line or len(clean_line) < 3:
+                            continue
+                        # Ignorer les lignes commençant par des mots conversationnels (insensible à la casse)
+                        if any(clean_line.lower().startswith(start) for start in conversational_starts):
+                            continue
+                        # Prendre la première ligne qui semble valide
+                        possible_title = clean_line
+                        break # On a trouvé notre titre potentiel
+
+                    # Limiter la longueur si nécessaire
+                    max_title_length = 80 # Un peu plus long pour être sûr
                     if len(possible_title) > max_title_length:
-                        possible_title = possible_title[:max_title_length] + "..."
+                         possible_title = possible_title[:max_title_length] + "..."
+                    # ------------------------------------
 
                     item['title'] = possible_title
-                    print(f"  Titre extrait: {item['title']}")
-                    if "\n" in raw_title_response or not hasattr(response_message, 'content'):
-                        print(f"  Réponse complète du LLM (titre): {response_message}") # Log l'objet complet si besoin
+                    print(f"  Titre extrait (parsing amélioré): {item['title']}")
+                    # Logguer la réponse brute si le parsing a pu être nécessaire
+                    if len(lines) > 1 or possible_title == "Titre non extrait":
+                        print(f"  Réponse brute du LLM (titre): {response_message}")
 
                 except Exception as e:
                     error_msg = f"Erreur génération titre pour {item.get('product_id', 'Inconnu')}: {e}"
@@ -159,8 +202,6 @@ def enhance_descriptions(state: WorkflowState) -> WorkflowState:
     options = state.get("processing_options", {})
     user_prompt_str = options.get("prompt", "")
     errors = state.get("errors", [])
-    # Initialiser results pour stocker les sorties de ce noeud et des suivants
-    # La structure de results doit correspondre à ce que aggregate_and_save attend
     results = state.get("results", [])
     if (
         not results and mapped_data
@@ -242,21 +283,26 @@ def enhance_descriptions(state: WorkflowState) -> WorkflowState:
 
         try:
             print(f"Génération description pour produit ID: {item.get('product_id', 'Inconnu')}")
-            # Appel LLM retourne un objet AIMessage
             response_message = desc_chain.invoke(input_data)
 
-            # --- Extraction du contenu ---
+            # --- Extraction et Vérification ---
+            enhanced_desc_str = "Erreur extraction contenu" # Default en cas de problème
             if hasattr(response_message, 'content'):
-                enhanced_desc = str(response_message.content).strip()
-            else: # Fallback
-                enhanced_desc = str(response_message).strip()
-            # ---------------------------
+                # Forcer la conversion en string et nettoyer
+                enhanced_desc_str = str(response_message.content).strip()
+            else:
+                # Fallback (moins probable avec ChatGoogleGenerativeAI)
+                enhanced_desc_str = str(response_message).strip()
+                print(f"  AVERTISSEMENT: Réponse LLM n'avait pas d'attribut 'content'. Réponse brute utilisée: {response_message}")
 
-            results[i]['enhanced_description'] = enhanced_desc
-            print(f"  Description générée (contenu extrait).")
-            # Log l'objet complet seulement si le fallback est utilisé ou pour debug
-            if not hasattr(response_message, 'content'):
-                print(f"  Réponse complète du LLM (description): {response_message}")
+            # --- Debugging: Vérifier type et valeur avant assignation ---
+            print(f"  DEBUG (enhance_desc): Type avant assignation: {type(enhanced_desc_str)}")
+            print(f"  DEBUG (enhance_desc): Valeur avant assignation (premiers 100 chars): {enhanced_desc_str[:100]}")
+            # -------------------------------------------------------------
+
+            # Assigner la chaîne de caractères extraite
+            results[i]['enhanced_description'] = enhanced_desc_str
+            print(f"  Description traitée et assignée.")
 
         except Exception as e:
             error_msg = f"Erreur génération description pour {item.get('product_id', 'Inconnu')}: {e}"

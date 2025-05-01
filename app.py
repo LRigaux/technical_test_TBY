@@ -5,7 +5,9 @@ import os
 import time
 from typing import List, Dict, Any, Optional
 
-# Importer depuis les modules src
+
+# --- Configuration et Utilitaires ---
+# On importe nos modules maison pour garder le code organisé
 from src.config import (
     DEFAULT_MODEL_REPO_ID,
     PROMPT_FILE,
@@ -14,111 +16,100 @@ from src.config import (
     RESIZE_IMAGE_DEFAULT,
     DEFAULT_IMAGE_SIZE,
 )
-from src.db_handler import (
-    get_db_connection,
-    close_db_connection,
-    fetch_all_enhanced_data,
-)
-from src.llm_models import initialize_llm
-from src.llm_models import initialize_google_llm # Modifier l'import
+from src.db_handler import fetch_all_enhanced_data
 
-from src.graph_workflow import (
-    build_graph,
-    WorkflowState,
-)  # On devra peut-être ajuster WorkflowState
-from src.data_handler import load_and_combine_csvs, map_columns  # Importer map_columns
-from src.utils import is_valid_url  # Pour prévisualisation image
+from src.llm_models import initialize_llm # pour huggingface (plus de crédit)
+from src.llm_models import initialize_google_llm
+from src.data_handler import load_and_combine_csvs
+from src.utils import is_valid_url, clean_html
 
 # S'assurer que Pillow/rembg sont bien installés
 try:
     from src.image_processor import check_rembg_availability
-
     REM_BG_AVAILABLE = check_rembg_availability()
 except ImportError:
     REM_BG_AVAILABLE = False
 
-# --- Configuration de la Page ---
-st.set_page_config(layout="wide", page_title="Amélioration Produit IA V3 (UI Focus)")
-st.image("LOGO.png")
-st.title("🚀 Amélioration Produit V3 (Interface Améliorée)")
+# --- Configuration de la page Streamlit ---
+st.set_page_config(layout="wide", page_title="Amélioration Produit IA")
+st.image("LOGO.png", width=300)
+st.title("🚀 Améliorateur de descriptions produits")
 
-# --- Initialisation de l'État de Session ---
-# Nécessaire pour garder les données entre les interactions
+# --- Gestion de l'État de Session ---
+# Streamlit réexécute le script à chaque interaction.
+# st.session_state permet de conserver des informations (données chargées, sélections)
+# entre ces réexécutions, essentiel pour une application interactive.
 if "uploaded_files_list" not in st.session_state:
-    st.session_state.uploaded_files_list = []  # Liste des objets fichiers
+    st.session_state.uploaded_files_list = [] 
 if "combined_df" not in st.session_state:
-    st.session_state.combined_df = None  # DataFrame combiné avant sélection
+    st.session_state.combined_df = None
 if "edited_df" not in st.session_state:
-    st.session_state.edited_df = None  # DataFrame avec les sélections de l'utilisateur
+    st.session_state.edited_df = None
 if "processing_results" not in st.session_state:
-    st.session_state.processing_results = None  # Résultats après exécution du graphe
+    st.session_state.processing_results = None
 if "loading_errors" not in st.session_state:
-    st.session_state.loading_errors = []  # Erreurs lors du chargement CSV
+    st.session_state.loading_errors = []
 
-# --- Chargement Configuration & Secrets ---
+# --- Chargement configuration & secrets ---
 hf_api_key = st.secrets.get("HUGGINGFACEHUB_API_TOKEN")
-google_api_key = st.secrets.get("GOOGLE_API_KEY")
+google_api_key = st.secrets.get("GOOGLE_API_KEY") # Priorité à Google
 if not os.path.exists(IMAGE_DIR):
     os.makedirs(IMAGE_DIR)
 
+# --- Vérification des clés API ---
 if not hf_api_key:
     st.error(
         "Veuillez configurer `HUGGINGFACEHUB_API_TOKEN` dans `.streamlit/secrets.toml`"
     )
     st.stop()
-if not google_api_key: # Priorité à Google pour cet exemple
+if not google_api_key: 
     st.error("Veuillez configurer `GOOGLE_API_KEY` dans `.streamlit/secrets.toml`")
     st.stop()
 
 
-# --- Initialisation (Lazy & Cached) ---
+# --- Initialisation des Ressources Mises en Cache ---
+# Utiliser @st.cache_resource pour les objets lourds ou non sérialisables
+# comme les connexions DB, les graphes LangChain, ou les clients LLM.
+# Cela évite de les recréer à chaque interaction.
 @st.cache_resource
 def cached_get_db_connection():
-    # Assurez-vous que db_handler.py est importé
     from src.db_handler import get_db_connection
-
     return get_db_connection()
-
-
-conn = cached_get_db_connection()
-
 
 @st.cache_resource
 def get_compiled_graph():
-    # Assurez-vous que graph_workflow.py est importé
     from src.graph_workflow import build_graph
-
-    # IMPORTANT: On devra peut-être adapter le graphe pour qu'il accepte un DF pré-traité
     return build_graph()
 
+@st.cache_resource 
+def get_llm_client_cached(model_name, key):
+    print(f"Tentative d'initialisation LLM Google pour {model_name}")
+    return initialize_google_llm(model_name=model_name, api_key=key)
 
+# Obtenir les ressources initialisées (récupérées du cache si déjà créées)
+conn = cached_get_db_connection()
 app_graph = get_compiled_graph()
 
-# --- Barre Latérale (Configuration Constante) ---
+# --- Barre Latérale de configuration ---
 with st.sidebar:
-    st.header("⚙️ Configuration Générale")
+    st.header("⚙️ Configuration générale")
     # model_repo_id = st.text_input("Modèle Hugging Face Repo ID", DEFAULT_MODEL_REPO_ID)
     google_model_name = st.selectbox(
         "Modèle Google AI",
-        ["gemini-1.5-flash", "gemini-1.0-pro", "models/gemini-1.5-pro-latest", "models/gemma-3-27b-it", "models/gemma-3-12b-it"],
-        index=0 # Défaut sur Flash
+        ["models/gemma-3-27b-it", "models/gemma-3-12b-it", "gemini-1.5-flash", "gemini-1.0-pro", "models/gemini-1.5-pro-latest"],
+        index=0,
+        help="Choisissez le modèle d'IA pour la génération."
     )
 
-    # Initialisation LLM (Cache basé sur le nom du modèle et la clé)
-    @st.cache_resource 
-    def get_llm_client_cached(model_name, key):
-        print(f"Tentative d'initialisation LLM Google pour {model_name}")
-        # Appeler la fonction d'initialisation Google
-        return initialize_google_llm(model_name=model_name, api_key=key)
-
+    # Initialisation LLM (cache basé sur le nom du modèle et la clé)
     llm = get_llm_client_cached(google_model_name, google_api_key)
 
     if not llm:
         st.error("Impossible d'initialiser le LLM Google.")
 
 
-    
-    st.header("📝 Prompt d'Amélioration")
+    # --- Prompt d'amélioration ---
+    st.header("📝 Prompt d'amélioration")
     try:
         with open(PROMPT_FILE, "r", encoding="utf-8") as f:
             default_prompt = f.read()
@@ -127,10 +118,11 @@ with st.sidebar:
         default_prompt = "Erreur chargement prompt."
 
     editable_prompt = st.text_area(
-        "Modifiez le prompt:", value=default_prompt, height=250
+        "Adaptez le prompt si besoin:", value=default_prompt, height=250
     )
 
-    st.header("🖼️ Options Image")
+    # --- Options de traitement des images ---
+    st.header("🖼️ Options image")
     harmonize_images = st.checkbox("Harmoniser les images", value=True)
     image_options = {}
     if harmonize_images:
@@ -148,28 +140,34 @@ with st.sidebar:
                 "Hauteur max", min_value=50, max_value=2000, value=DEFAULT_IMAGE_SIZE[1]
             )
             image_options["max_size"] = (img_width, img_height)
+        image_options['force_format'] = st.selectbox("Forcer Format Sortie", [None, "PNG", "JPEG", "WEBP"], index=0)
+        image_options['overwrite'] = st.checkbox("Écraser images existantes", value=False)
+        if REM_BG_AVAILABLE:
+            image_options['rembg_model'] = st.selectbox("Modèle Rembg", ["u2net", "u2netp", "silueta"], index=0) # Exemple
+        if image_options['force_format'] == 'JPEG':
+            image_options['jpeg_quality'] = st.slider("Qualité JPEG", 50, 100, 90)
         if not REM_BG_AVAILABLE and image_options.get("remove_bg"):
             st.warning("'rembg' non trouvé.", icon="⚠️")
 
 
-# --- Section Principale ---
+# --- Section principale du streamlit---
 
-# 1. Upload des Fichiers
-st.header("1. Charger les Fichiers CSV")
+# Étape 1 : Upload des fichiers
+st.header("1. Charger les descriptions")
 uploaded_files = st.file_uploader(
     "Sélectionnez ou glissez-déposez vos fichiers CSV",
     type=["csv"],
     accept_multiple_files=True,
-    key="file_uploader",  # Clé pour potentiellement réinitialiser
+    key="file_uploader",  # clé pour potentiellement réinitialiser
 )
 
-# Détecter si la liste des fichiers a changé
+# logique pour recharger les données si les fichiers uploadés changent
 if uploaded_files != st.session_state.uploaded_files_list:
     st.session_state.uploaded_files_list = uploaded_files
-    st.session_state.combined_df = None  # Réinitialiser le DF combiné
-    st.session_state.edited_df = None  # Réinitialiser le DF édité
-    st.session_state.processing_results = None  # Réinitialiser les résultats précédents
-    st.session_state.loading_errors = []  # Réinitialiser les erreurs
+    st.session_state.combined_df = None
+    st.session_state.edited_df = None
+    st.session_state.processing_results = None
+    st.session_state.loading_errors = []
     if uploaded_files:
         st.info(
             f"{len(uploaded_files)} fichier(s) sélectionné(s). Chargement et combinaison..."
@@ -179,13 +177,13 @@ if uploaded_files != st.session_state.uploaded_files_list:
         st.session_state.combined_df = combined_df
         st.session_state.loading_errors = errors
         if combined_df is not None:
-            # Préparer pour l'éditeur: Ajouter la colonne 'Select' si elle n'existe pas
+            # préparer pour l'éditeur
             if "Select" not in combined_df.columns:
                 combined_df.insert(0, "Select", False)
             st.session_state.edited_df = (
                 combined_df.copy()
-            )  # Initialiser l'éditeur avec le DF chargé
-        st.rerun()  # Forcer un re-run pour afficher le data_editor
+            )  # init l'éditeur avec le DF chargé
+        st.rerun()  # forcer un re-run pour afficher le data_editor
 
 # Afficher les erreurs de chargement s'il y en a
 if st.session_state.loading_errors:
@@ -193,13 +191,13 @@ if st.session_state.loading_errors:
     for error in st.session_state.loading_errors:
         st.error(f"- {error}")
 
-# 2. Prévisualisation et Sélection
-st.header("2. Prévisualiser et Sélectionner les Produits")
+# Étape 2: prévisualisation et sélection
+st.header("2. Prévisualiser et sélectionner les produits")
 
 if st.session_state.edited_df is not None and not st.session_state.edited_df.empty:
     st.info("Cochez les lignes que vous souhaitez traiter.")
 
-    # Boutons de sélection rapide
+    # boutons de sélection/désélection rapide
     col_btn1, col_btn2, _ = st.columns([1, 1, 4])
     with col_btn1:
         if st.button("Tout Sélectionner", key="select_all"):
@@ -210,11 +208,9 @@ if st.session_state.edited_df is not None and not st.session_state.edited_df.emp
             st.session_state.edited_df["Select"] = False
             st.rerun()
 
-    # --- Configuration dynamique du Data Editor ---
+    # configuration des colonnes pour l'éditeur (rend les colonnes sources non modifiables)
     column_config = {
         "Select": st.column_config.CheckboxColumn(required=True, default=False),
-        # Désactiver l'édition des colonnes sources par défaut
-        # Trouver une colonne d'image potentielle pour la prévisualisation
     }
     potential_image_cols = [
         "image_source",
@@ -229,49 +225,47 @@ if st.session_state.edited_df is not None and not st.session_state.edited_df.emp
             image_col_found = col
             break
 
-    # Ajouter la config pour l'image si trouvée
+    # ajouter la config pour l'image si trouvée
     if image_col_found:
         column_config[image_col_found] = st.column_config.ImageColumn(
             label="🖼️ Aperçu Image",
             help="Aperçu de l'image depuis l'URL source",
             width="small",  # ou "medium"
         )
-        # On peut aussi vouloir désactiver l'édition de cette colonne URL
-        # column_config[image_col_found]['disabled'] = True # Ne semble pas exister pour ImageColumn
-
-    # Désactiver l'édition des autres colonnes sources
+    # désactiver l'édition des autres colonnes sources
     for col in st.session_state.edited_df.columns:
         if (
             col != "Select" and col not in column_config
-        ):  # Ne pas écraser la config Select/Image
+        ):
             column_config[col] = st.column_config.Column(disabled=True)
 
-    # Afficher le data editor
+    # afficher le data editor
     edited_df_result = st.data_editor(
         st.session_state.edited_df,
-        key="data_editor",  # Clé pour accéder à l'état édité
+        key="data_editor",  # clé pour accéder à l'état édité
         use_container_width=True,
         hide_index=True,
         column_config=column_config,
-        num_rows="dynamic",  # Garder dynamique pour voir toutes les lignes
+        num_rows="dynamic",  # garder dynamique pour voir toutes les lignes
     )
 
-    # Mettre à jour l'état de session avec les modifications de l'éditeur
+    # Mettre à jour l'état de session avec les modifications pas l'utilisateur
     # Vérifier si l'objet retourné est différent (signifie une édition)
     # Note: C'est un peu délicat, parfois il vaut mieux juste relire la clé
     st.session_state.edited_df = (
         edited_df_result  # L'état est mis à jour par st.data_editor lui-même via sa clé
     )
 
-    # Compter les lignes sélectionnées
+    # affiche les lignes sélectionnées
     selected_rows_df = st.session_state.edited_df[st.session_state.edited_df["Select"]]
     st.info(f"**{len(selected_rows_df)}** produit(s) sélectionné(s) pour traitement.")
 
 else:
     st.warning("Veuillez charger un ou plusieurs fichiers CSV pour commencer.")
 
-# 3. Lancer le Traitement Agentique
-st.header("3. Lancer le Traitement IA")
+
+# Étape 3: Lancer le traitement agentique de la description
+st.header("3. Lancer le traitement IA")
 
 button_disabled = (
     llm is None
@@ -282,7 +276,7 @@ button_disabled = (
 )
 
 if st.button(
-    "🚀 Lancer l'Amélioration sur la Sélection",
+    "✨ Lancer l'amélioration sur la sélection",
     type="primary",
     disabled=button_disabled,
 ):
@@ -290,7 +284,7 @@ if st.button(
         st.session_state.edited_df["Select"]
     ].copy()
 
-    # Préparer l'état initial
+    # préparer l'état initial pour LangGraph
     initial_state = {
         "selected_dataframe": selected_df_to_process,
         "mapped_data": [],
@@ -309,91 +303,78 @@ if st.button(
     final_state = None
     node_statuses = {}  # Pour suivre l'état de chaque noeud
 
-    # Utiliser st.status pour afficher la progression dynamique
+    # utiliser st.status pour afficher la progression dynamique
     with st.status(
         "🚀 Initialisation du workflow...", expanded=True
     ) as status_container:
         try:
-            # Utiliser app_graph.stream pour obtenir les événements
+            # exécute le graphe en mode streaming pour suivre les étapes
             event_stream = app_graph.stream(initial_state, stream_mode="values")
 
             for event in event_stream:
-                # La structure de l'événement est un dictionnaire où les clés sont les noms des noeuds
+                # la structure de l'événement est un dictionnaire où les clés sont les noms des noeuds
                 # et les valeurs sont les sorties de ces noeuds (l'état mis à jour)
-                # On peut détecter quel noeud vient de s'exécuter
-                final_state = event
+                # on peut détecter quel noeud vient de s'exécuter
+                final_state = event # garder l'état complet le plus récent
                 latest_node = list(event.keys())[
                     -1
-                ]  # Le noeud le plus récent dans l'événement
+                ]
 
                 if latest_node not in node_statuses:
                     node_statuses[latest_node] = "running"
-                    st.write(f"▶️ Démarrage étape : **{latest_node}**")
-                    status_container.update(label=f"⏳ Exécution : {latest_node}...")
+                    st.write(f"▶️ Étape: **{latest_node}**")
+                    status_container.update(label=f"⏳ En cours: {latest_node}...")
 
-                # # Mettre à jour l'état final à chaque événement
-                # final_state = event.get(
-                #     latest_node
-                # )  # L'état après l'exécution du dernier noeud
-
-                # Optionnel: Afficher des détails de l'état pour debug
-                # st.write(f"État après {latest_node}: {final_state}")
-            print(f"DEBUG: Type of final_state after loop: {type(final_state)}")
-            print(f"DEBUG: Keys in final_state after loop: {list(final_state.keys()) if isinstance(final_state, dict) else 'N/A'}")
-            # Une fois la boucle terminée, le workflow est fini
+                # afficher des détails de l'état pour debug
+                st.write(f"État après {latest_node}: {final_state}")
+            # une fois la boucle terminée, le workflow est fini
+            # Vérifier l'état final après la fin du stream
             if isinstance(final_state, dict):
                 status_container.update(label="✅ Workflow terminé !", state="complete", expanded=False)
-                st.session_state.processing_results = final_state # Sauvegarder l'état final correct
-                st.success("Traitement terminé avec succès !")
-
-                # Afficher les erreurs globales (maintenant sûr d'utiliser .get())
+                st.session_state.processing_results = final_state
+                st.success("Traitement terminé !")
                 if final_state.get('errors'):
-                    st.warning("Des erreurs globales sont survenues pendant le traitement :")
-                    for error in final_state['errors']:
-                        st.error(f"- {error}")
+                    st.warning("Des erreurs globales sont survenues :")
+                    for error in final_state['errors']: st.error(f"- {error}")
             else:
-                # Si final_state n'est pas un dict, il y a eu un problème inattendu
-                error_msg = f"Erreur interne: Le workflow s'est terminé mais l'état final est invalide (type: {type(final_state)})."
-                print(error_msg)
+                error_msg = f"Erreur interne: État final invalide (type: {type(final_state)})."
+                print(error_msg) # Log pour debug
                 st.error(error_msg)
-                status_container.update(label="❌ Erreur Workflow (État Final Invalide)", state="error", expanded=True)
-                st.session_state.processing_results = None # Ne pas sauvegarder un état invalide
+                status_container.update(label="❌ Erreur Workflow", state="error", expanded=True)
+                st.session_state.processing_results = None
 
         except Exception as e:
             st.error(f"Erreur critique lors de l'exécution du graphe : {e}")
-            st.exception(e)
-            status_container.update(label="❌ Erreur Workflow", state="error", expanded=True)
-            # Sauvegarder l'état partiel si disponible et si c'est un dict
-            if isinstance(final_state, dict):
-                st.session_state.processing_results = final_state
-            else:
-                st.session_state.processing_results = {"errors": [f"Erreur critique: {e}", f"État final invalide: {final_state}"]}
+            st.exception(e) # Affiche la trace complète pour le debug
+            status_container.update(label="❌ Erreur Critique Workflow", state="error", expanded=True)
+            st.session_state.processing_results = final_state if isinstance(final_state, dict) else {"errors": [f"Erreur critique: {e}", f"État final partiel: {final_state}"]}
 
-# 4. Affichage des Résultats
-st.header("4. Résultats du Traitement")
+# Étape 4. affichage des résultats
+st.header("4. Résultats du traitement")
 
 if isinstance(st.session_state.processing_results, dict) and st.session_state.processing_results.get('results'):
     results_list = st.session_state.processing_results["results"]
     df_results = pd.DataFrame(results_list)
 
-    st.info(f"{len(df_results)} produits traités.")
-    # st.dataframe(df_results) # Affichage tabulaire simple pour debug
+    st.success(f"{len(df_results)} produits traités avec succès (voir détails ci-dessous).")
+    # st.dataframe(df_results)
 
-    # Affichage détaillé par produit
-    st.subheader("Détails par Produit Traité")
+    # affichage détaillé dans des expanders pour garder l'interface propre
+    st.subheader("Détails par produit traité")
     for index, res_row in df_results.iterrows():
         # Utiliser l'ID produit comme titre de section si disponible
         product_id_display = res_row.get("product_id", f"Ligne {index+1}")
         with st.expander(f"**Produit ID: {product_id_display}**", expanded=False):
             col_res1, col_res2 = st.columns(2)
             with col_res1:
-                st.write("**Titre Généré/Original:**")
+                st.write("**Titre généré/original:**")
                 st.caption(res_row.get("generated_title", "N/A"))
                 st.write(
-                    "**Description Originale (HTML brute):**"
-                )  # Afficher l'original pour comparaison
-                st.code(res_row.get("original_body_html", "N/A"), language="html")
-                st.write("**Image Originale:**")
+                    "**Description originale (nettoyée):**"
+                )
+                cleaned_original = clean_html(res_row.get("original_body_html", ""))
+                st.text_area("", value=cleaned_original, height=150, disabled=True, key=f"clean_orig_{product_id_display}")
+                st.write("**Image originale:**")
                 img_src = res_row.get("image_source")
                 if img_src and pd.notna(img_src) and is_valid_url(img_src):
                     st.image(img_src, width=150)
@@ -401,13 +382,13 @@ if isinstance(st.session_state.processing_results, dict) and st.session_state.pr
                     st.caption("Pas d'image source valide")
 
             with col_res2:
-                st.write("**Description Améliorée:**")
+                st.write("**Description améliorée:**")
                 st.markdown(
                     res_row.get(
                         "enhanced_description", "*Aucune description générée*"
                     ).replace("\n", "  \n")
                 )
-                st.write("**Image Traitée:**")
+                st.write("**Image traitée:**")
                 img_processed = res_row.get("processed_image_path")
                 if (
                     img_processed
@@ -427,8 +408,8 @@ if isinstance(st.session_state.processing_results, dict) and st.session_state.pr
                         f"Erreur spécifique: {res_row['processing_error']}", icon="🚨"
                     )
 
-    # --- Export CSV ---
-    st.header("5. Exporter les Résultats")
+    # Etape 5: export CSV
+    st.header("5. Exporter les résultats")
     csv_export = df_results.to_csv(index=False).encode("utf-8")
     st.download_button(
         label="📥 Télécharger les résultats traités en CSV",
@@ -436,17 +417,18 @@ if isinstance(st.session_state.processing_results, dict) and st.session_state.pr
         file_name=f"enhanced_products_{time.strftime('%Y%m%d_%H%M%S')}.csv",
         mime="text/csv",
     )
+    # gérer le cas où le traitement a eu lieu mais sans résultats (ex: erreur globale)
 elif st.session_state.processing_results:
     st.warning("Le traitement s'est terminé mais aucun résultat structuré n'a été trouvé dans l'état final.")
-    # Afficher les erreurs globales si elles existent, même si results est vide/manquant
+    # afficher les erreurs globales si elles existent, même si results est vide/manquant
     if isinstance(st.session_state.processing_results, dict) and st.session_state.processing_results.get('errors'):
         st.warning("Erreurs globales reportées :")
         for error in st.session_state.processing_results['errors']:
             st.error(f"- {error}")
 
 
-# 5. Historique (Optionnel)
-st.header("📚 Historique Complet (depuis DuckDB)")
+# Etape 6: historique
+st.header("📚 Historique complet (depuis DuckDB)")
 if st.checkbox("Afficher l'historique complet"):
     try:
         history_df = fetch_all_enhanced_data(conn)
@@ -457,4 +439,4 @@ if st.checkbox("Afficher l'historique complet"):
     except Exception as e:
         st.error(f"Erreur lors de la récupération de l'historique: {e}")
 
-st.sidebar.info("Version 3 - UI/UX Améliorée")
+st.sidebar.info("Application d'amélioration produit TheBradery - Louis Rigaux")
