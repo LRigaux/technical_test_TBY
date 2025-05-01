@@ -8,7 +8,10 @@ from typing import List, Dict, Any, Tuple, Optional
 # Assurez-vous que config.py est dans le même dossier (ou ajuste l'import)
 from .config import COLUMN_MAPPING, REQUIRED_KEYS
 
-def load_and_combine_csvs(uploaded_files: List[st.runtime.uploaded_file_manager.UploadedFile]) -> Tuple[Optional[pd.DataFrame], List[str]]:
+
+def load_and_combine_csvs(
+    uploaded_files: List[st.runtime.uploaded_file_manager.UploadedFile],
+) -> Tuple[Optional[pd.DataFrame], List[str]]:
     """
     Charge plusieurs fichiers CSV uploadés via Streamlit, les combine en un seul DataFrame.
 
@@ -30,7 +33,7 @@ def load_and_combine_csvs(uploaded_files: List[st.runtime.uploaded_file_manager.
     for file in uploaded_files:
         try:
             # Force l'encodage en UTF-8, souvent nécessaire pour les CSV web
-            df = pd.read_csv(file, encoding='utf-8')
+            df = pd.read_csv(file, encoding="utf-8")
             # Optionnel: Nettoyer les noms de colonnes (enlever espaces, etc.)
             df.columns = df.columns.str.strip()
             all_dfs.append(df)
@@ -41,7 +44,9 @@ def load_and_combine_csvs(uploaded_files: List[st.runtime.uploaded_file_manager.
             errors.append(f"Erreur lors de la lecture du fichier '{file.name}': {e}")
 
     if not all_dfs:
-        errors.append("Aucun des fichiers fournis n'a pu être lu ou ils étaient tous vides.")
+        errors.append(
+            "Aucun des fichiers fournis n'a pu être lu ou ils étaient tous vides."
+        )
         return None, errors
 
     # Combiner tous les DataFrames lus avec succès
@@ -60,7 +65,9 @@ def load_and_combine_csvs(uploaded_files: List[st.runtime.uploaded_file_manager.
         return None, errors
 
 
-def map_columns(df: pd.DataFrame, mapping_config: Dict, required_keys: List[str]) -> Tuple[List[Dict[str, Any]], List[str]]:
+def map_columns(
+    df: pd.DataFrame, mapping_config: Dict, required_keys: List[str]
+) -> Tuple[List[Dict[str, Any]], List[str]]:
     """
     Mappe les colonnes d'un DataFrame aux clés standard définies dans la config.
 
@@ -77,10 +84,10 @@ def map_columns(df: pd.DataFrame, mapping_config: Dict, required_keys: List[str]
     errors: List[str] = []
     mapped_data_list: List[Dict[str, Any]] = []
     actual_columns = df.columns.tolist()
-    standard_keys = mapping_config.get('standard_keys', [])
-    possible_names_map = mapping_config.get('possible_names', {})
+    standard_keys = mapping_config.get("standard_keys", [])
+    possible_names_map = mapping_config.get("possible_names", {})
 
-    found_mapping: Dict[str, str] = {} # {standard_key: actual_column_name}
+    found_mapping: Dict[str, str] = {}  # {standard_key: actual_column_name}
 
     print("Début du mapping des colonnes...")
     print(f"Colonnes trouvées dans le CSV: {actual_columns}")
@@ -95,9 +102,11 @@ def map_columns(df: pd.DataFrame, mapping_config: Dict, required_keys: List[str]
                 found_mapping[std_key] = potential_name
                 print(f"  Mapping trouvé: '{std_key}' -> '{potential_name}'")
                 found = True
-                break # Prend le premier nom possible trouvé
+                break  # Prend le premier nom possible trouvé
         if not found:
-            print(f"  Avertissement: Aucune colonne trouvée pour la clé standard '{std_key}'.")
+            print(
+                f"  Avertissement: Aucune colonne trouvée pour la clé standard '{std_key}'."
+            )
             # On ne met pas d'erreur ici, mais on le note si c'est requis plus bas
 
     # 2. Vérifier si les clés requises ont été mappées
@@ -107,14 +116,16 @@ def map_columns(df: pd.DataFrame, mapping_config: Dict, required_keys: List[str]
             missing_required.append(req_key)
 
     if missing_required:
-        errors.append(f"Erreur critique: Les colonnes requises suivantes n'ont pas pu être mappées : {', '.join(missing_required)}. Le traitement risque d'échouer.")
+        errors.append(
+            f"Erreur critique: Les colonnes requises suivantes n'ont pas pu être mappées : {', '.join(missing_required)}. Le traitement risque d'échouer."
+        )
         # Selon la criticité, on pourrait retourner une liste vide ici:
         # return [], errors
 
     # 3. Transformer le DataFrame en liste de dictionnaires avec les clés standard
     # Utiliser to_dict('records') pour itérer sur les lignes comme des dictionnaires
     try:
-        for index, row in enumerate(df.to_dict('records')):
+        for index, row in enumerate(df.to_dict("records")):
             new_row_dict: Dict[str, Any] = {}
             # Ajouter toutes les clés standard prévues, même si non mappées (avec None)
             for std_key in standard_keys:
@@ -124,30 +135,42 @@ def map_columns(df: pd.DataFrame, mapping_config: Dict, required_keys: List[str]
                     new_row_dict[std_key] = row.get(actual_col_name)
                 else:
                     # La clé standard n'a pas été trouvée dans le CSV
-                    new_row_dict[std_key] = None # Ou une autre valeur par défaut (ex: '')
+                    new_row_dict[std_key] = (
+                        None  # Ou une autre valeur par défaut (ex: '')
+                    )
 
             # Conversion spéciale pour product_id en entier si possible
-            pid_key = 'product_id'
+            pid_key = "product_id"
             if pid_key in new_row_dict:
                 try:
                     # Gérer les NaN/None avant conversion
                     if pd.notna(new_row_dict[pid_key]):
                         new_row_dict[pid_key] = int(new_row_dict[pid_key])
                     else:
-                         # Que faire si product_id est manquant? Erreur? ID temporaire?
-                         errors.append(f"Avertissement: product_id manquant ou invalide à la ligne {index+2} du CSV combiné.")
-                         new_row_dict[pid_key] = f"invalid_id_{index}" # Ou None, mais la PK DB n'aimera pas
+                        # Que faire si product_id est manquant? Erreur? ID temporaire?
+                        errors.append(
+                            f"Avertissement: product_id manquant ou invalide à la ligne {index+2} du CSV combiné."
+                        )
+                        new_row_dict[pid_key] = (
+                            f"invalid_id_{index}"  # Ou None, mais la PK DB n'aimera pas
+                        )
 
                 except (ValueError, TypeError) as e:
-                    errors.append(f"Avertissement: Impossible de convertir product_id '{new_row_dict[pid_key]}' en entier à la ligne {index+2}: {e}")
-                    new_row_dict[pid_key] = f"invalid_id_{index}" # Marquer comme invalide
+                    errors.append(
+                        f"Avertissement: Impossible de convertir product_id '{new_row_dict[pid_key]}' en entier à la ligne {index+2}: {e}"
+                    )
+                    new_row_dict[pid_key] = (
+                        f"invalid_id_{index}"  # Marquer comme invalide
+                    )
 
             # Ajouter la ligne transformée à la liste
             mapped_data_list.append(new_row_dict)
 
     except Exception as e:
-         errors.append(f"Erreur lors de la transformation des lignes en dictionnaires mappés: {e}")
-         return [], errors # Retourner vide en cas d'erreur majeure ici
+        errors.append(
+            f"Erreur lors de la transformation des lignes en dictionnaires mappés: {e}"
+        )
+        return [], errors  # Retourner vide en cas d'erreur majeure ici
 
     print(f"Mapping terminé. {len(mapped_data_list)} lignes prêtes pour le traitement.")
     if errors:

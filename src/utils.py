@@ -4,6 +4,7 @@ import html2text
 import pandas as pd
 from typing import Optional
 
+
 def clean_html(raw_html: Optional[str]) -> str:
     """
     Nettoie une chaîne de caractères HTML pour en extraire le texte brut.
@@ -22,10 +23,12 @@ def clean_html(raw_html: Optional[str]) -> str:
         # Configuration pour ignorer les éléments non textuels et préserver les paragraphes
         h.ignore_links = True
         h.ignore_images = True
-        h.ignore_emphasis = False # Garder le gras/italique si pertinent ? À ajuster.
-        h.body_width = 0  # Désactive le retour à la ligne automatique basé sur la largeur
-        h.unicode_snob = True # Pour une meilleure gestion de l'unicode
-        h.escape_snob = True # Échapper les caractères spéciaux Markdown
+        h.ignore_emphasis = False  # Garder le gras/italique si pertinent ? À ajuster.
+        h.body_width = (
+            0  # Désactive le retour à la ligne automatique basé sur la largeur
+        )
+        h.unicode_snob = True  # Pour une meilleure gestion de l'unicode
+        h.escape_snob = True  # Échapper les caractères spéciaux Markdown
 
         text = h.handle(str(raw_html))
 
@@ -45,9 +48,11 @@ def clean_html(raw_html: Optional[str]) -> str:
         # Retourner une chaîne vide ou une indication d'erreur selon le besoin
         return ""
 
+
 # Potentiellement d'autres fonctions utilitaires ici...
 # Par exemple, une fonction pour valider une URL :
 import validators
+
 
 def is_valid_url(url: Optional[str]) -> bool:
     """Vérifie si une chaîne est une URL valide."""

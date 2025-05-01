@@ -4,7 +4,7 @@ import duckdb
 import pandas as pd
 from typing import List, Dict, Any, Optional
 import datetime
-import streamlit as st # Utilisé uniquement pour le décorateur @st.cache_resource
+import streamlit as st  # Utilisé uniquement pour le décorateur @st.cache_resource
 
 # Importer la configuration pour le chemin de la base de données
 from .config import DB_FILE
@@ -13,6 +13,7 @@ from .config import DB_FILE
 TABLE_NAME = "enhanced_descriptions"
 
 # --- Fonctions de Gestion de la Connexion et Initialisation ---
+
 
 # Note: Le décorateur @st.cache_resource est généralement appliqué dans app.py
 # où la connexion est initialisée pour la session Streamlit.
@@ -39,6 +40,7 @@ def get_db_connection(db_path: str = DB_FILE) -> duckdb.DuckDBPyConnection:
         # mais gardons ce module indépendant de l'UI.
         raise  # Propage l'erreur pour que l'appelant la gère
 
+
 def _initialize_database(conn: duckdb.DuckDBPyConnection):
     """
     Crée la table des descriptions améliorées si elle n'existe pas déjà.
@@ -49,7 +51,7 @@ def _initialize_database(conn: duckdb.DuckDBPyConnection):
     """
     create_table_sql = f"""
     CREATE TABLE IF NOT EXISTS {TABLE_NAME} (
-        product_id INTEGER PRIMARY KEY,          -- Identifiant unique du produit
+        product_id BIGINT PRIMARY KEY,           -- Identifiant unique du produit
         original_body_html TEXT,                 -- Description HTML originale
         enhanced_description TEXT,               -- Description générée par l'IA
         generated_title VARCHAR,                 -- Titre généré/original utilisé
@@ -63,11 +65,14 @@ def _initialize_database(conn: duckdb.DuckDBPyConnection):
     """
     try:
         conn.execute(create_table_sql)
-        conn.commit() # S'assurer que la création de table est persistée
+        conn.commit()  # s'assurer que la création de table est persistée
         print(f"Table '{TABLE_NAME}' vérifiée/créée avec succès.")
     except Exception as e:
-        print(f"Erreur lors de la création/vérification de la table '{TABLE_NAME}': {e}")
-        raise # Propage pour indiquer un problème d'initialisation
+        print(
+            f"Erreur lors de la création/vérification de la table '{TABLE_NAME}': {e}"
+        )
+        raise  # propage pour indiquer un problème d'initialisation
+
 
 def close_db_connection(conn: Optional[duckdb.DuckDBPyConnection]):
     """
@@ -83,7 +88,9 @@ def close_db_connection(conn: Optional[duckdb.DuckDBPyConnection]):
         except Exception as e:
             print(f"Erreur lors de la fermeture de la connexion DuckDB: {e}")
 
+
 # --- Fonctions d'Interaction avec les Données ---
+
 
 def save_results_to_db(conn: duckdb.DuckDBPyConnection, results: List[Dict[str, Any]]):
     """
@@ -108,16 +115,22 @@ def save_results_to_db(conn: duckdb.DuckDBPyConnection, results: List[Dict[str, 
     # Définir les colonnes attendues dans l'ordre de la table (sauf last_updated qui est ajouté)
     # IMPORTANT: L'ordre ici DOIT correspondre à l'ordre des '?' dans la requête SQL
     expected_columns = [
-        'product_id', 'original_body_html', 'enhanced_description', 'generated_title',
-        'vendor', 'product_type', 'image_source', 'processed_image_path',
-        'processing_error'
+        "product_id",
+        "original_body_html",
+        "enhanced_description",
+        "generated_title",
+        "vendor",
+        "product_type",
+        "image_source",
+        "processed_image_path",
+        "processing_error",
     ]
 
     for record in results:
         # Créer un tuple avec les valeurs dans le bon ordre, gérant les clés manquantes
-        record_tuple = tuple(
-            record.get(col) for col in expected_columns
-        ) + (current_timestamp,) # Ajouter le timestamp à la fin
+        record_tuple = tuple(record.get(col) for col in expected_columns) + (
+            current_timestamp,
+        )  # Ajouter le timestamp à la fin
         data_to_insert.append(record_tuple)
 
     # Construire la requête SQL INSERT OR REPLACE
@@ -132,17 +145,22 @@ def save_results_to_db(conn: duckdb.DuckDBPyConnection, results: List[Dict[str, 
     """
 
     try:
-        print(f"Tentative de sauvegarde de {len(data_to_insert)} enregistrements dans '{TABLE_NAME}'...")
+        print(
+            f"Tentative de sauvegarde de {len(data_to_insert)} enregistrements dans '{TABLE_NAME}'..."
+        )
         # Utiliser executemany pour une insertion/remplacement efficace par lots
         conn.executemany(sql, data_to_insert)
-        conn.commit() # Persister les changements
-        print(f"{len(data_to_insert)} enregistrements sauvegardés/mis à jour avec succès.")
+        conn.commit()  # Persister les changements
+        print(
+            f"{len(data_to_insert)} enregistrements sauvegardés/mis à jour avec succès."
+        )
     except Exception as e:
         print(f"Erreur lors de la sauvegarde des résultats en base de données: {e}")
         # On pourrait tenter un rollback ici, mais DuckDB gère souvent bien les transactions atomiques
         # conn.rollback()
         # Propage l'erreur pour que le workflow puisse la logger
         raise
+
 
 def fetch_all_enhanced_data(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
     """
@@ -165,8 +183,11 @@ def fetch_all_enhanced_data(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
         # Retourner un DataFrame vide pour éviter de planter l'UI
         return pd.DataFrame()
 
+
 # Exemple d'une fonction pour récupérer un produit spécifique (non utilisée actuellement mais utile)
-def fetch_product_by_id(conn: duckdb.DuckDBPyConnection, product_id: int) -> Optional[Dict[str, Any]]:
+def fetch_product_by_id(
+    conn: duckdb.DuckDBPyConnection, product_id: int
+) -> Optional[Dict[str, Any]]:
     """
     Récupère les données d'un produit spécifique par son ID.
 
@@ -180,7 +201,9 @@ def fetch_product_by_id(conn: duckdb.DuckDBPyConnection, product_id: int) -> Opt
     try:
         print(f"Recherche du produit ID {product_id} dans '{TABLE_NAME}'...")
         # Utiliser fetchone() ou fetchall() après une requête WHERE
-        result = conn.execute(f"SELECT * FROM {TABLE_NAME} WHERE product_id = ?", (product_id,)).fetchone()
+        result = conn.execute(
+            f"SELECT * FROM {TABLE_NAME} WHERE product_id = ?", (product_id,)
+        ).fetchone()
         if result:
             # Convertir le tuple résultat en dictionnaire (si nécessaire)
             # Obtenir les noms de colonnes pour mapper les valeurs
