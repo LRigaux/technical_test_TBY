@@ -10,7 +10,7 @@ from typing import List, Dict, Any, Optional
 # On importe nos modules maison pour garder le code organisé
 from src.config import (
     DEFAULT_MODEL_REPO_ID,
-    PROMPT_FILE,
+    DATA_DIR,
     IMAGE_DIR,
     REMOVE_BG_DEFAULT,
     RESIZE_IMAGE_DEFAULT,
@@ -110,6 +110,11 @@ with st.sidebar:
 
     # --- Prompt d'amélioration ---
     st.header("📝 Prompt d'amélioration")
+    prompt = st.selectbox("Choisir un prompt", ["prompt.txt", "prompt_v2.txt"], index=0)
+    if prompt == "prompt.txt":
+        PROMPT_FILE = os.path.join(DATA_DIR, "prompt.txt")
+    else:
+        PROMPT_FILE = os.path.join(DATA_DIR, "prompt_v2.txt")
     try:
         with open(PROMPT_FILE, "r", encoding="utf-8") as f:
             default_prompt = f.read()
@@ -143,7 +148,7 @@ with st.sidebar:
         image_options['force_format'] = st.selectbox("Forcer Format Sortie", [None, "PNG", "JPEG", "WEBP"], index=0)
         image_options['overwrite'] = st.checkbox("Écraser images existantes", value=False)
         if REM_BG_AVAILABLE:
-            image_options['rembg_model'] = st.selectbox("Modèle Rembg", ["u2net", "u2netp", "silueta"], index=0) # Exemple
+            image_options['rembg_model'] = st.selectbox("Modèle Rembg", ["u2net", "u2netp", "silueta"], index=0)
         if image_options['force_format'] == 'JPEG':
             image_options['jpeg_quality'] = st.slider("Qualité JPEG", 50, 100, 90)
         if not REM_BG_AVAILABLE and image_options.get("remove_bg"):

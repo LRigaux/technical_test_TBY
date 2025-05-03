@@ -1,10 +1,12 @@
 # src/llm_models.py
+# gère l'initialisation et la configuration des modèles LLM
 from langchain_huggingface import HuggingFaceEndpoint
 from langchain_google_genai import ChatGoogleGenerativeAI
 import streamlit as st
 from typing import Optional
 import os
 
+# Initialisation du modèle LLM via HuggingFaceEndpoint
 def initialize_llm(repo_id: str, api_key: str) -> Optional[HuggingFaceEndpoint]:
     """Initialise et retourne le modèle LLM via HuggingFaceEndpoint."""
     if not api_key:
@@ -23,7 +25,8 @@ def initialize_llm(repo_id: str, api_key: str) -> Optional[HuggingFaceEndpoint]:
     except Exception as e:
         print(f"Erreur lors de l'initialisation du modèle LLM ({repo_id}): {e}")
         return None
-    
+
+# Initialisation du modèle LLM via Google Generative AI
 def initialize_google_llm(model_name: str = "gemini-1.5-flash", api_key: Optional[str] = None) -> Optional[ChatGoogleGenerativeAI]:
     """Initialise et retourne un LLM Google Generative AI."""
     if not api_key:

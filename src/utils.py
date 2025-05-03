@@ -1,5 +1,5 @@
 # src/utils.py
-
+# contient des fonctions utilitaires
 import html2text
 import pandas as pd
 from typing import Optional

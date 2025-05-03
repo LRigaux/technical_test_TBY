@@ -1,5 +1,5 @@
 # src/db_handler.py
-
+# gère la connexion et l'interaction avec la base de données
 import duckdb
 import pandas as pd
 from typing import List, Dict, Any, Optional
@@ -15,7 +15,7 @@ TABLE_NAME = "enhanced_descriptions"
 # --- Fonctions de Gestion de la Connexion et Initialisation ---
 
 
-# Note: Le décorateur @st.cache_resource est généralement appliqué dans app.py
+# l@st.cache_resource est généralement appliqué dans app.py
 # où la connexion est initialisée pour la session Streamlit.
 # Cette fonction est fournie pour être appelée par celle décorée dans app.py.
 def get_db_connection(db_path: str = DB_FILE) -> duckdb.DuckDBPyConnection:

@@ -5,7 +5,7 @@
 
 Auteur: Louis Rigaux
 
-Bonjour ! Ce projet propose une application Streamlit conçue pour aider The Bradery à **améliorer et standardiser les descriptions de produits** de manière efficace et cohérente, en tirant parti de l'Intelligence Artificielle.
+Ce projet propose une application Streamlit conçue pour aider The Bradery à **améliorer et standardiser les descriptions de produits** de manière efficace et cohérente, en tirant parti de l'IA Générative.
 
 L'objectif est de transformer des données produits brutes (issues d'exports CSV) en **descriptions marketing structurées, factuelles et optimisées** pour notre plateforme, tout en offrant des outils pour **harmoniser les visuels**.
 

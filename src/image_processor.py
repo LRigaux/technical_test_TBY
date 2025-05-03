@@ -1,4 +1,5 @@
 # src/image_processor.py
+# gère le téléchargement, la validation, le traitement et la sauvegarde des images
 
 import os
 import requests

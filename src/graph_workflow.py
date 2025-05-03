@@ -1,4 +1,5 @@
 # src/graph_workflow.py
+# gère le workflow de traitement des données et la construction du graphe
 from typing import TypedDict, List, Dict, Any, Optional
 import pandas as pd
 from langgraph.graph import StateGraph, END

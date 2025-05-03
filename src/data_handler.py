@@ -1,12 +1,9 @@
 # src/data_handler.py
+# gère le chargement et la combinaison des fichiers CSV
 
 import pandas as pd
 import streamlit as st
 from typing import List, Dict, Any, Tuple, Optional
-
-# Importation de la configuration pour le mapping
-# Assurez-vous que config.py est dans le même dossier (ou ajuste l'import)
-from .config import COLUMN_MAPPING, REQUIRED_KEYS
 
 
 def load_and_combine_csvs(
