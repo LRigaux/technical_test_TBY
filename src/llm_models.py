@@ -8,7 +8,16 @@ import os
 
 # Initialisation du modèle LLM via HuggingFaceEndpoint
 def initialize_llm(repo_id: str, api_key: str) -> Optional[HuggingFaceEndpoint]:
-    """Initialise et retourne le modèle LLM via HuggingFaceEndpoint."""
+    """
+    Initialise et retourne le modèle LLM via HuggingFaceEndpoint.
+
+    Args:
+        repo_id: L'identifiant du modèle HuggingFace, ou None.
+        api_key: La clé API HuggingFace, ou None.
+
+    Returns:
+        Un LLM HuggingFaceEndpoint initialisé, ou None en cas d'erreur.
+    """
     if not api_key:
         print("Erreur: Clé API Hugging Face non fournie.")
         return None
@@ -28,7 +37,16 @@ def initialize_llm(repo_id: str, api_key: str) -> Optional[HuggingFaceEndpoint]:
 
 # Initialisation du modèle LLM via Google Generative AI
 def initialize_google_llm(model_name: str = "gemini-1.5-flash", api_key: Optional[str] = None) -> Optional[ChatGoogleGenerativeAI]:
-    """Initialise et retourne un LLM Google Generative AI."""
+    """
+    Initialise et retourne le modèle LLM via Google Generative AI.
+
+    Args:
+        model_name: Le nom du modèle Google AI, ou "gemini-1.5-flash" par défaut.
+        api_key: La clé API Google AI, ou None.
+
+    Returns:
+        Un LLM Google Generative AI initialisé, ou None en cas d'erreur.
+    """
     if not api_key:
         print("Erreur: Clé API Google non fournie.")
         return None

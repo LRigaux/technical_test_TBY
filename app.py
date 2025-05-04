@@ -3,7 +3,8 @@ import streamlit as st
 import pandas as pd
 import os
 import time
-from typing import List, Dict, Any, Optional
+
+import plotly.express as px
 
 
 # --- Configuration et Utilitaires ---
@@ -21,7 +22,7 @@ from src.db_handler import fetch_all_enhanced_data
 from src.llm_models import initialize_llm # pour huggingface (plus de crédit)
 from src.llm_models import initialize_google_llm
 from src.data_handler import load_and_combine_csvs
-from src.utils import is_valid_url, clean_html
+from src.utils import is_valid_url, clean_html, analyze_dataframe 
 
 # S'assurer que Pillow/rembg sont bien installés
 try:
@@ -36,15 +37,15 @@ st.image("LOGO.png", width=300)
 st.title("🚀 Améliorateur de descriptions produits")
 
 # --- Gestion de l'État de Session ---
-# Streamlit réexécute le script à chaque interaction.
 # st.session_state permet de conserver des informations (données chargées, sélections)
 # entre ces réexécutions, essentiel pour une application interactive.
 if "uploaded_files_list" not in st.session_state:
     st.session_state.uploaded_files_list = [] 
-if "combined_df" not in st.session_state:
-    st.session_state.combined_df = None
-if "edited_df" not in st.session_state:
-    st.session_state.edited_df = None
+if "combined_df" not in st.session_state: st.session_state.combined_df = None
+if "analysis_results" not in st.session_state: st.session_state.analysis_results = None
+if "user_preprocessing_choices" not in st.session_state: st.session_state.user_preprocessing_choices = {}
+if "preprocessed_df" not in st.session_state: st.session_state.preprocessed_df = None
+if "edited_df" not in st.session_state: st.session_state.edited_df = None
 if "processing_results" not in st.session_state:
     st.session_state.processing_results = None
 if "loading_errors" not in st.session_state:
@@ -68,7 +69,7 @@ if not google_api_key:
 
 
 # --- Initialisation des Ressources Mises en Cache ---
-# Utiliser @st.cache_resource pour les objets lourds ou non sérialisables
+# @st.cache_resource pour les objets lourds ou non sérialisables
 # comme les connexions DB, les graphes LangChain, ou les clients LLM.
 # Cela évite de les recréer à chaque interaction.
 @st.cache_resource
@@ -86,7 +87,7 @@ def get_llm_client_cached(model_name, key):
     print(f"Tentative d'initialisation LLM Google pour {model_name}")
     return initialize_google_llm(model_name=model_name, api_key=key)
 
-# Obtenir les ressources initialisées (récupérées du cache si déjà créées)
+# obtenir les ressources initialisées (récupérées du cache si déjà créées)
 conn = cached_get_db_connection()
 app_graph = get_compiled_graph()
 
@@ -169,32 +170,133 @@ uploaded_files = st.file_uploader(
 # logique pour recharger les données si les fichiers uploadés changent
 if uploaded_files != st.session_state.uploaded_files_list:
     st.session_state.uploaded_files_list = uploaded_files
-    st.session_state.combined_df = None
-    st.session_state.edited_df = None
-    st.session_state.processing_results = None
+    # réinitialise toutes les étapes suivantes
+    st.session_state.combined_df = st.session_state.analysis_results = st.session_state.user_preprocessing_choices = None
+    st.session_state.preprocessed_df = st.session_state.edited_df = st.session_state.processing_results = None
     st.session_state.loading_errors = []
     if uploaded_files:
-        st.info(
-            f"{len(uploaded_files)} fichier(s) sélectionné(s). Chargement et combinaison..."
-        )
-        # Charger et combiner immédiatement
-        combined_df, errors = load_and_combine_csvs(uploaded_files)
-        st.session_state.combined_df = combined_df
-        st.session_state.loading_errors = errors
-        if combined_df is not None:
-            # préparer pour l'éditeur
-            if "Select" not in combined_df.columns:
-                combined_df.insert(0, "Select", False)
-            st.session_state.edited_df = (
-                combined_df.copy()
-            )  # init l'éditeur avec le DF chargé
+        with st.spinner("Chargement et analyse initiale des fichiers..."):
+            combined_df, errors = load_and_combine_csvs(uploaded_files)
+            st.session_state.combined_df = combined_df
+            st.session_state.loading_errors = errors
+            if combined_df is not None:
+                # analyse immédiatement après le chargement
+                st.session_state.analysis_results = analyze_dataframe(combined_df)
+                # initialiser le DataFrame prétraité comme étant le combiné au début
+                st.session_state.preprocessed_df = combined_df.copy()
+                # préparer l'éditeur avec le DF initial (sera mis à jour après prétraitement)
+                df_for_editor = st.session_state.preprocessed_df
+                if "Select" not in df_for_editor.columns:
+                    df_for_editor.insert(0, "Select", False)
+                st.session_state.edited_df = df_for_editor.copy()
+
         st.rerun()  # forcer un re-run pour afficher le data_editor
 
-# Afficher les erreurs de chargement s'il y en a
+# affiche les erreurs de chargement s'il y en a
 if st.session_state.loading_errors:
     st.warning("Erreurs lors du chargement des fichiers CSV :")
     for error in st.session_state.loading_errors:
         st.error(f"- {error}")
+
+st.header("1.5 Analyser et Préparer les Données")
+if st.session_state.analysis_results and st.session_state.combined_df is not None:
+    analysis = st.session_state.analysis_results
+    st.info(f"Analyse initiale : {analysis['total_rows']} lignes, {analysis['total_cols']} colonnes.")
+
+    with st.expander("Voir les détails de l'analyse", expanded=False):
+        st.subheader("Informations Générales")
+        st.code(analysis['df_info'])
+
+        st.subheader("Valeurs Manquantes par Colonne")
+        if not analysis['missing_stats'].empty:
+            # Visualisation
+            fig = px.bar(analysis['missing_stats'], y='Manquants (%)', x=analysis['missing_stats'].index,
+                         title="Pourcentage de Valeurs Manquantes", text_auto='.2s',
+                         labels={'index': 'Colonne'})
+            fig.update_traces(textposition='outside')
+            st.plotly_chart(fig, use_container_width=True)
+            # Tableau détaillé
+            st.dataframe(analysis['missing_stats'])
+        else:
+            st.success("Aucune valeur manquante détectée !")
+
+        st.subheader("Lignes avec Description Manquante")
+        st.write(f"Nombre de lignes où la description ('body_html') est vide ou manquante : {analysis['rows_with_missing_desc_count']}")
+        # affiche les index ou un extrait
+        if analysis['rows_with_missing_desc_indices']:
+            st.write("Index des lignes concernées (premiers 10):", analysis['rows_with_missing_desc_indices'][:10])
+
+    st.subheader("Options de Nettoyage (Optionnel)")
+    st.markdown("Vous pouvez choisir de retirer certaines colonnes ou lignes avant de continuer.")
+
+    # Initialiser les choix utilisateur s'ils n'existent pas
+    if not st.session_state.user_preprocessing_choices:
+        st.session_state.user_preprocessing_choices = {
+            'cols_to_drop': [],
+            'drop_rows_missing_desc': False
+        }
+
+    # Option pour supprimer les colonnes suggérées
+    cols_suggestion = analysis.get('cols_to_suggest_dropping', [])
+    if cols_suggestion:
+        st.session_state.user_preprocessing_choices['cols_to_drop'] = st.multiselect(
+            f"Colonnes suggérées pour suppression (plus de 95% de valeurs manquantes) :",
+            options=cols_suggestion,
+            default=st.session_state.user_preprocessing_choices['cols_to_drop'], # Garder le choix précédent
+            help="Sélectionnez les colonnes que vous souhaitez retirer définitivement."
+        )
+    else:
+        st.write("Aucune colonne avec un taux de remplissage très faible n'a été détectée.")
+        st.session_state.user_preprocessing_choices['cols_to_drop'] = []
+
+
+    # Option pour supprimer les lignes sans description
+    missing_desc_count = analysis.get('rows_with_missing_desc_count', 0)
+    if missing_desc_count > 0:
+        st.session_state.user_preprocessing_choices['drop_rows_missing_desc'] = st.checkbox(
+            f"Retirer les {missing_desc_count} lignes sans description ('body_html') ?",
+            value=st.session_state.user_preprocessing_choices['drop_rows_missing_desc'], # Garder le choix précédent
+            help="Ces lignes ne pourront probablement pas être traitées efficacement par l'IA."
+        )
+    else:
+        st.write("Toutes les lignes semblent avoir une description.")
+        st.session_state.user_preprocessing_choices['drop_rows_missing_desc'] = False
+
+    # Bouton pour appliquer le nettoyage
+    if st.button("Appliquer le Nettoyage Sélectionné", key="apply_preprocessing"):
+        with st.spinner("Application du nettoyage..."):
+            df_to_clean = st.session_state.combined_df.copy()
+            choices = st.session_state.user_preprocessing_choices
+
+            # 1. Supprime les colonnes sélectionnées
+            cols_to_drop = choices.get('cols_to_drop', [])
+            if cols_to_drop:
+                df_to_clean = df_to_clean.drop(columns=cols_to_drop, errors='ignore')
+                st.success(f"Colonnes retirées : {', '.join(cols_to_drop)}")
+
+            # 2. Supprime les lignes sans description si demandé
+            if choices.get('drop_rows_missing_desc', False):
+                desc_indices_to_drop = analysis.get('rows_with_missing_desc_indices', [])
+                if desc_indices_to_drop:
+                    initial_rows = len(df_to_clean)
+                    df_to_clean = df_to_clean.drop(index=desc_indices_to_drop, errors='ignore')
+                    rows_dropped = initial_rows - len(df_to_clean)
+                    st.success(f"{rows_dropped} lignes sans description retirées.")
+
+            # Met à jour le DataFrame prétraité et celui pour l'éditeur
+            st.session_state.preprocessed_df = df_to_clean
+            # Prépare l'éditeur avec le DF nettoyé
+            df_for_editor = st.session_state.preprocessed_df
+            if "Select" not in df_for_editor.columns:
+                df_for_editor.insert(0, "Select", False)
+            else: # Assurer que la colonne Select est réinitialisée après drop
+                df_for_editor['Select'] = False
+            st.session_state.edited_df = df_for_editor.copy()
+            st.info("Nettoyage appliqué. Le tableau de prévisualisation est mis à jour.")
+            # pas besoin de rerun ici, le tableau suivant utilisera le nouvel edited_df
+
+elif not st.session_state.uploaded_files_list:
+    st.info("En attente du chargement de fichiers CSV pour l'analyse.")
 
 # Étape 2: prévisualisation et sélection
 st.header("2. Prévisualiser et sélectionner les produits")
@@ -254,17 +356,18 @@ if st.session_state.edited_df is not None and not st.session_state.edited_df.emp
         num_rows="dynamic",  # garder dynamique pour voir toutes les lignes
     )
 
-    # Mettre à jour l'état de session avec les modifications pas l'utilisateur
-    # Vérifier si l'objet retourné est différent (signifie une édition)
-    # Note: C'est un peu délicat, parfois il vaut mieux juste relire la clé
+    # met à jour l'état de session avec les modifications pas l'utilisateur
+    # vérifie si l'objet retourné est différent (signifie une édition)
     st.session_state.edited_df = (
-        edited_df_result  # L'état est mis à jour par st.data_editor lui-même via sa clé
+        edited_df_result
     )
 
     # affiche les lignes sélectionnées
     selected_rows_df = st.session_state.edited_df[st.session_state.edited_df["Select"]]
     st.info(f"**{len(selected_rows_df)}** produit(s) sélectionné(s) pour traitement.")
 
+elif st.session_state.uploaded_files_list:
+    st.warning("Les données sont en cours d'analyse ou le pré-traitement n'a pas encore été appliqué.")
 else:
     st.warning("Veuillez charger un ou plusieurs fichiers CSV pour commencer.")
 
@@ -284,6 +387,7 @@ if st.button(
     "✨ Lancer l'amélioration sur la sélection",
     type="primary",
     disabled=button_disabled,
+    icon="✨"
 ):
     selected_df_to_process = st.session_state.edited_df[
         st.session_state.edited_df["Select"]
@@ -317,9 +421,6 @@ if st.button(
             event_stream = app_graph.stream(initial_state, stream_mode="values")
 
             for event in event_stream:
-                # la structure de l'événement est un dictionnaire où les clés sont les noms des noeuds
-                # et les valeurs sont les sorties de ces noeuds (l'état mis à jour)
-                # on peut détecter quel noeud vient de s'exécuter
                 final_state = event # garder l'état complet le plus récent
                 latest_node = list(event.keys())[
                     -1
@@ -327,11 +428,12 @@ if st.button(
 
                 if latest_node not in node_statuses:
                     node_statuses[latest_node] = "running"
-                    st.write(f"▶️ Étape: **{latest_node}**")
+                    status_container.write(f"▶️ Étape: **{latest_node}**")
                     status_container.update(label=f"⏳ En cours: {latest_node}...")
 
                 # afficher des détails de l'état pour debug
-                st.write(f"État après {latest_node}: {final_state}")
+                # st.write(f"État après {latest_node}: {final_state}")
+
             # une fois la boucle terminée, le workflow est fini
             # Vérifier l'état final après la fin du stream
             if isinstance(final_state, dict):

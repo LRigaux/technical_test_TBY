@@ -21,30 +21,23 @@ from .db_handler import (
 )
 
 
-# --- Définition de l'État du Graphe (Modifiée) ---
+# --- Définition de l'État du Graphe ---
 class WorkflowState(TypedDict):
-    # Supprimé: uploaded_files, raw_dataframe
     selected_dataframe: Optional[
         pd.DataFrame
-    ]  # DataFrame sélectionné par l'utilisateur
+    ]
     mapped_data: List[
         Dict[str, Any]
     ]  # Liste de dicts avec clés standardisées (sortie du mapping)
     processing_options: Dict[str, Any]  # Options UI (prompt, image harm.)
     llm_client: Optional[
         Runnable
-    ]  # Instance du LLM initialisé (HuggingFaceEndpoint ou autre Runnable)
+    ]  
     results: List[Dict[str, Any]]  # Résultats finaux (incluant erreurs spécifiques)
     errors: List[str]  # Erreurs globales du workflow
-    # db_connection: Optional[
-    #     Any
-    # ]  # Connexion DB passée depuis l'app (duckdb.DuckDBPyConnection)
 
 
 # --- Nœuds du Graphe (Fonctions) ---
-
-
-# NOUVEAU Noeud: Remplace load_and_map_data
 def map_selected_data(state: WorkflowState) -> WorkflowState:
     """
     Prend le DataFrame sélectionné depuis l'état et mappe ses colonnes aux clés standard.

@@ -33,7 +33,11 @@ except ImportError:
 
 
 def check_rembg_availability() -> bool:
-    """Vérifie si la librairie rembg est installée."""
+    """Vérifie si la librairie rembg est installée.
+    
+    Returns:
+        True si rembg est installé, False sinon.
+    """
     return REM_BG_AVAILABLE
 
 
@@ -244,7 +248,17 @@ def process_image(
 
 # --- Fonction utilitaire pour padding (optionnel) ---
 def add_padding(img: Image.Image, target_size: Tuple[int, int], background_color: Tuple[int, int, int, int]) -> Image.Image:
-    """Ajoute du padding à une image pour atteindre une taille cible."""
+    """
+    Ajoute du padding à une image pour atteindre une taille cible.
+    
+    Args:
+        img: L'image à paddinger.
+        target_size: La taille cible (largeur, hauteur).
+        background_color: La couleur de fond (R, G, B, A).
+
+    Returns:
+        L'image paddingée.
+    """
     original_width, original_height = img.size
     target_width, target_height = target_size
 

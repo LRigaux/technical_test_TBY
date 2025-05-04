@@ -4,16 +4,12 @@ import duckdb
 import pandas as pd
 from typing import List, Dict, Any, Optional
 import datetime
-import streamlit as st  # Utilisé uniquement pour le décorateur @st.cache_resource
-
-# Importer la configuration pour le chemin de la base de données
 from .config import DB_FILE
 
 # Nom de la table principale
 TABLE_NAME = "enhanced_descriptions"
 
 # --- Fonctions de Gestion de la Connexion et Initialisation ---
-
 
 # @st.cache_resource est généralement appliqué dans app.py
 # où la connexion est initialisée pour la session Streamlit.
@@ -48,6 +44,9 @@ def _initialize_database(conn: duckdb.DuckDBPyConnection):
 
     Args:
         conn: La connexion DuckDB active.
+    
+    Returns:
+        None
     """
     create_table_sql = f"""
     CREATE TABLE IF NOT EXISTS {TABLE_NAME} (
@@ -80,6 +79,9 @@ def close_db_connection(conn: Optional[duckdb.DuckDBPyConnection]):
 
     Args:
         conn: L'objet de connexion DuckDB (peut être None).
+
+    Returns:
+        None
     """
     if conn:
         try:
@@ -101,6 +103,9 @@ def save_results_to_db(conn: duckdb.DuckDBPyConnection, results: List[Dict[str, 
         results: Une liste de dictionnaires, où chaque dictionnaire représente
                  un produit traité et contient les clés correspondant aux colonnes
                  de la table (ex: 'product_id', 'enhanced_description', etc.).
+    
+    Returns:
+        None
     """
     if not results:
         print("Aucun résultat à sauvegarder en base de données.")
