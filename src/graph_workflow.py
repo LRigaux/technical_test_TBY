@@ -9,7 +9,7 @@ from langchain_core.prompts import PromptTemplate
 from langchain_core.runnables import Runnable  # Pour type hint llm_client
 
 # Importer les fonctions des autres modules
-from .config import COLUMN_MAPPING, REQUIRED_KEYS, DEFAULT_MODEL_REPO_ID, PROMPT_FILE
+from .config import COLUMN_MAPPING, REQUIRED_KEYS
 from .utils import clean_html
 from .data_handler import map_columns
 from .llm_models import initialize_llm  # Reste nécessaire pour le type hint potentiel
