@@ -5,20 +5,21 @@
 
 Auteur: Louis Rigaux
 
-Ce projet propose une application Streamlit conçue pour aider The Bradery à **améliorer et standardiser les descriptions de produits** de manière efficace et cohérente, en tirant parti de l'IA Générative.
+Ce projet propose une application Streamlit conçue pour aider The Bradery à **améliorer et standardiser les descriptions de produits** de manière efficace et cohérente, en tirant parti de l'IA Générative (via l'API gratuite de Google AI).
 
-L'objectif est de transformer des données produits brutes (issues d'exports CSV) en **descriptions marketing structurées, factuelles et optimisées** pour notre plateforme, tout en offrant des outils pour **harmoniser les visuels**.
+L'objectif est de transformer des données produits brutes (issues d'exports CSV) en **descriptions marketing structurées, factuelles et optimisées** pour notre plateforme, tout en offrant des outils pour **analyser la qualité des données** et **harmoniser les visuels**.
 
 ---
 
-## ✨ Pourquoi cet outil ?
+## ✨ Pourquoi cet outil ? Bénéfices clés
 
-*   **Efficacité :** Automatise la réécriture fastidieuse des descriptions en appliquant des règles de style définies.
-*   **Cohérence :** Assure une structure et un ton uniformes sur l'ensemble des fiches produits traitées.
-*   **Flexibilité :** Permet de traiter des lots de produits via upload CSV et de sélectionner précisément les éléments à modifier.
-*   **Personnalisation :** Le "cerveau" de l'IA (le prompt) est facilement modifiable pour s'adapter à l'évolution de nos besoins marketing.
-*   **Harmonisation Visuelle :** Offre des options pour nettoyer et standardiser les images produits (fond transparent, redimensionnement).
-*   **Gratuit & Local :** Utilise des modèles d'IA accessibles gratuitement (via l'API Google AI) et stocke les données localement (DuckDB), sans coûts d'infrastructure externes majeurs pour cette version.
+*   **Analyse de données intégrée:** fournit un aperçu statistique des fichiers CSV chargés (taux de remplissage, types de données) pour identifier rapidement les problèmes potentiels.
+*   **Nettoyage interactif:** permet de retirer facilement les colonnes jugées inutiles (ex: trop de valeurs manquantes) ou les lignes sans description avant le traitement IA.
+*   **Efficacité IA:** automatise la réécriture des descriptions en appliquant des règles de style définies, en se concentrant sur les données pertinentes.
+*   **Cohérence:** assure une structure et un ton uniformes sur l'ensemble des fiches produits traitées.
+*   **Flexibilité & personnalisation:** traite des lots via upload CSV, permet une sélection fine des produits, et le prompt IA est modifiable pour s'adapter aux besoins marketing.
+*   **Harmonisation visuelle:** offre des options pour nettoyer (fond transparent) et standardiser (redimensionnement) les images produits.
+*   **Gratuit & local:** utilise l'API gratuite de Google AI et stocke les données localement (DuckDB), limitant les coûts.
 
 ---
 
@@ -26,13 +27,14 @@ L'objectif est de transformer des données produits brutes (issues d'exports CSV
 
 L'application combine plusieurs technologies modernes et open-source :
 
-*   **Interface Utilisateur :** Streamlit (pour une application web interactive simple)
-*   **Orchestration IA :** LangChain & LangGraph (pour définir et exécuter le workflow de traitement)
-*   **Modèle de Langage (LLM) :** Google AI API (Gemini/Gemma via `langchain-google-genai`) - *Nécessite une clé API gratuite.*
-*   **Traitement de Données :** Pandas
-*   **Traitement d'Images :** Pillow, Rembg (optionnel, pour la suppression de fond)
-*   **Base de Données Locale :** DuckDB (pour stocker l'historique des traitements)
-*   **Langage :** Python 3.12+
+*   **Interface Utilisateur:** Streamlit (pour une application web interactive simple)
+*   **Analyse de données & visualisation:** Pandas, Plotly Express
+*   **Orchestration IA:** LangChain & LangGraph (pour définir et exécuter le workflow de traitement)
+*   **Modèle de langage (LLM):** Google AI API (Gemini/Gemma via `langchain-google-genai`) - *Nécessite une clé API gratuite.*
+*   **Traitement de données:** Pandas
+*   **Traitement d'images:** Pillow, Rembg (optionnel, pour la suppression de fond)
+*   **Base de données locale:** DuckDB (pour stocker l'historique des traitements)
+*   **Langage:** Python 3.12+
 
 ---
 
@@ -72,29 +74,29 @@ technical_test_TBY/
 
 ---
 
-## ⚙️ Mise en Place (Installation & Configuration)
+## ⚙️ Mise en place (installation & configuration)
 
 Pour lancer l'application sur votre poste :
 
-1.  **Prérequis :** Assurez-vous d'avoir Python 3.12+ et `pip` installés.
-2.  **Cloner le Dépôt :**
+1.  **Prérequis:** Assurez-vous d'avoir Python 3.12+ et `pip` installés.
+2.  **Cloner le dépôt:**
     ```bash
     git clone https://github.com/lrigaux/technical_test_TBY.git
     cd technical_test_TBY
     ```
-3.  **Créer un Environnement Virtuel** (recommandé) :
+3.  **Créer un environnement virtuel** (recommandé):
     ```bash
     python -m venv ai_venv
     ```
-4.  **Activer l'Environnement :**
+4.  **Activer l'environnement:**
     *   Windows : `.\ai_venv\Scripts\activate`
     *   macOS/Linux : `source ai_venv/bin/activate`
-5.  **Installer les Dépendances :**
+5.  **Installer les dépendances:**
     ```bash
     pip install -r requirements.txt
     ```
 
-6.  **Configurer les Clés API (Très Important) :**
+6.  **Configurer les clés API:**
     *   Obtenez une clé API gratuite depuis [Google AI Studio](https://aistudio.google.com/).
     *   Créez le dossier `.streamlit` à la racine du projet (s'il n'existe pas).
     *   Créez un fichier `secrets.toml` dans ce dossier.
@@ -104,16 +106,16 @@ Pour lancer l'application sur votre poste :
         GOOGLE_API_KEY = "VOTRE_CLE_API_GOOGLE_AI_ICI"
         # HUGGINGFACEHUB_API_TOKEN = "VOTRE_CLE_HF_SI_UTILISEE" # Optionnel
         ```
-7.  **(Optionnel) Vérifier la Configuration :**
+7.  **(Optionnel) Vérifier la configuration:**
     *   Le fichier `src/config.py` contient le modèle Google AI par défaut et les options d'image.
     *   Le fichier `prompt.txt` contient le prompt par défaut utilisé par l'IA.
 
 ---
 
-## ▶️ Comment Utiliser l'Application
+## ▶️ Comment utiliser l'application
 
 1.  **Activer l'environnement virtuel** (si ce n'est pas déjà fait) : `source ai_venv/bin/activate` (ou équivalent Windows).
-2.  **Lancer l'Application :** Depuis la racine du projet (`ai_product_enhancer/`), exécutez :
+2.  **Lancer l'application :** Depuis la racine du projet (`ai_product_enhancer/`), exécutez :
     ```bash
     streamlit run app.py
     ```
@@ -121,47 +123,59 @@ Pour lancer l'application sur votre poste :
 
 ---
 
-## 🔀 Dans l'application
+## 🔀 Flux de travail dans l'application
 
-**Barre Latérale**: Configuration générale
-    *   Choisissez le Modèle Google AI à utiliser.
-    *   Visualisez et modifiez le Prompt si vous souhaitez ajuster le style de la description générée.
-    *   Configurez les Options d'Image (activer/désactiver, suppression de fond, redimensionnement, etc.).
-1. **Charger les descriptions**
-    * Cliquez pour uploader un ou plusieurs fichiers CSV contenant les informations produits. Les colonnes attendues (même si les noms varient un peu) sont typiquement product_id, vendor, product_type, body_html, image_source.
-2. **Prévisualiser et sélectionner les produits**
-    * Un tableau affiche les données chargées avec une case à cocher "Traiter?".
-    * Utilisez les cases ou les boutons "Tout Sélectionner"/"Tout Désélectionner".
-    * Un aperçu de l'image source est affiché si une colonne d'URL est détectée.
-3.  **Lancer le traitement** : 
-    * Cliquez sur le bouton "✨ Lancer l'amélioration".
-    * Une boîte de statut apparaîtra, montrant la progression à travers les différentes étapes du workflow (Mapping, Génération Titre, Amélioration, Description, Traitement Image, Sauvegarde).
-4.  **Consulter les résultats** :
-    * Une fois terminé, les résultats s'affichent produit par produit dans des sections dépliables (st.expander).
-    * Vous y verrez : Titre, Description Originale (nettoyée), Description Améliorée, Image Originale, Image Traitée, et les erreurs éventuelles.
-5.  **Exporter** : 
-    * Téléchargez un fichier CSV contenant uniquement les produits traités et leurs nouvelles informations.
-6.  **Historique** : 
-    * Cochez la case pour voir l'ensemble des données traitées précédemment et stockées dans la base locale DuckDB.
+**(A) Configuration (barre latérale)**
+*   Choisissez le **Modèle Google AI**.
+*   Visualisez/Modifiez le **Prompt** pour la génération de texte.
+*   Configurez les **Options d'image** (harmonisation, format, etc.).
+
+**(B) Traitement principal**
+
+1.  **Charger les données (section 1)**
+    *   Uploadez un ou plusieurs fichiers CSV. L'application les combine automatiquement.
+
+2.  **Analyser et préparer (section 1.5) - NOUVEAU !**
+    *   Visualisez les **statistiques clés** (lignes, colonnes, valeurs manquantes via graphique).
+    *   **Optionnel:** Choisissez de **retirer les colonnes** jugées peu utiles (ex: >95% vides).
+    *   **Optionnel:** Choisissez de **retirer les lignes** où la description produit est manquante.
+    *   Cliquez sur **"Appliquer le Nettoyage"** pour valider vos choix. Le tableau de prévisualisation sera mis à jour.
+
+3.  **Prévisualiser et sélectionner (section 2)**
+    *   Le tableau affiche les données (potentiellement nettoyées).
+    *   Utilisez les **cases à cocher** ou les boutons "Tout sélectionner/désélectionner" pour choisir les produits à traiter par l'IA.
+
+4.  **Lancer le traitement IA (section 3)**
+    *   Cliquez sur **"✨ Lancer l'amélioration"**.
+    *   Suivez la **progression** des différentes étapes (mapping, génération titre, description, image, sauvegarde) dans la boîte de statut.
+
+5.  **Consulter les résultats (section 4)**
+    *   Les résultats s'affichent produit par produit (titre, description originale nettoyée, description améliorée, images, erreurs éventuelles).
+
+6.  **Exporter (section 5)**
+    *   Téléchargez un fichier CSV contenant les données des produits traités.
+
+7.  **Historique (section 📚)**
+    *   Consultez l'historique complet des traitements stockés localement.
 
 ---
 
 ## 🧠 Le workflow d'amélioration (LangGraph)
 Sous le capot, un "graphe" LangGraph orchestre les étapes suivantes pour chaque produit sélectionné :
-* map_selected : Identifie et standardise les colonnes du CSV (même si les noms varient).
-* gen_titles : Si le produit n'a pas de titre, l'IA en génère un basé sur la description.
-* enhance_desc : L'IA principale réécrit la description en suivant les règles du prompt configuré.
-* proc_images : Si activé, télécharge et applique les transformations d'image demandées.
-* aggregate_results : Rassemble toutes les informations (originales, générées, erreurs).
-* persist_db : Sauvegarde les résultats finaux dans la base de données locale DuckDB.
+* map_selected : identifie et standardise les colonnes du CSV (même si les noms varient).
+* gen_titles : si le produit n'a pas de titre, l'IA en génère un basé sur la description.
+* enhance_desc : l'IA principale réécrit la description en suivant les règles du prompt configuré.
+* proc_images : si activé, télécharge et applique les transformations d'image demandées.
+* aggregate_results : rassemble toutes les informations (originales, générées, erreurs).
+* persist_db : sauvegarde les résultats finaux dans la base de données locale DuckDB.
 
 ---
 
-## 🚀 Pistes d'amélioration possibles
+## Pistes d'amélioration possibles
 
-* Mapping de Colonnes Assisté par IA : Pour gérer des formats CSV encore plus variés.
-* Traitement d'Image Avancé : Ajout d'options (recadrage, ajout de fond blanc uniforme...).
-* Gestion d'Erreurs Plus Fine : Permettre de relancer facilement les produits en erreur.
-* Traitement par Lots (Batch Processing) : Pour une meilleure performance sur de très gros volumes.
-* A/B Testing de Prompts : Intégrer une fonctionnalité pour comparer les résultats de différents prompts.
-* Intégration Directe : Connecter l'outil à d'autres systèmes internes.
+*   **Mapping de colonnes assisté par IA.**
+*   **Traitement d'image avancé** (recadrage, fond blanc...).
+*   **Gestion d'erreurs plus fine** (relance facile).
+*   **Traitement par lots** (performance gros volumes).
+*   **A/B Testing de prompts.**
+*   **Intégration directe** (API PIM...).
