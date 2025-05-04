@@ -7,9 +7,7 @@ from PIL import Image, UnidentifiedImageError, ImageOps # ImageOps pour padding 
 from io import BytesIO
 from typing import Dict, Any, Optional, Tuple, Union
 import pandas as pd
-import validators # Pour la validation d'URL
-
-# Importer la config pour les chemins et options par défaut
+import validators # validation d'URL
 from .config import IMAGE_DIR, DEFAULT_IMAGE_SIZE
 
 # Gestion conditionnelle de rembg
@@ -17,9 +15,9 @@ try:
     from rembg import remove, new_session # Utiliser new_session pour potentiellement choisir le modèle
     REM_BG_AVAILABLE = True
     print("Librairie 'rembg' trouvée et importée.")
-    # Créer une session rembg par défaut (peut être surchargée)
-    # Modèles possibles: "u2net", "u2netp", "u2net_human_seg", "silueta", etc.
-    DEFAULT_REMBG_MODEL = "u2net" # Modèle généraliste
+    # réer une session rembg par défaut
+    # modèles possibles: "u2net", "u2netp", "u2net_human_seg", "silueta", etc.
+    DEFAULT_REMBG_MODEL = "u2net"
     try:
         rembg_session = new_session(model_name=DEFAULT_REMBG_MODEL)
         print(f"Session rembg créée avec le modèle '{DEFAULT_REMBG_MODEL}'.")
@@ -72,7 +70,7 @@ def process_image(
         return None
 
     processed_image_path: Optional[str] = None
-    processed: bool = False # Flag pour savoir si une modification a eu lieu
+    processed: bool = False # flag pour savoir si une modification a eu lieu
 
     # --- 2. Téléchargement et Validation HTTP ---
     try:
@@ -108,7 +106,6 @@ def process_image(
 
     # --- 3. Traitement avec Pillow et Rembg ---
     try:
-        # Ouvrir l'image
         try:
             img = Image.open(BytesIO(img_data))
             original_format = img.format

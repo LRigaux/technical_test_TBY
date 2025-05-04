@@ -15,7 +15,7 @@ TABLE_NAME = "enhanced_descriptions"
 # --- Fonctions de Gestion de la Connexion et Initialisation ---
 
 
-# l@st.cache_resource est généralement appliqué dans app.py
+# @st.cache_resource est généralement appliqué dans app.py
 # où la connexion est initialisée pour la session Streamlit.
 # Cette fonction est fournie pour être appelée par celle décorée dans app.py.
 def get_db_connection(db_path: str = DB_FILE) -> duckdb.DuckDBPyConnection:
@@ -71,7 +71,7 @@ def _initialize_database(conn: duckdb.DuckDBPyConnection):
         print(
             f"Erreur lors de la création/vérification de la table '{TABLE_NAME}': {e}"
         )
-        raise  # propage pour indiquer un problème d'initialisation
+        raise  # propage
 
 
 def close_db_connection(conn: Optional[duckdb.DuckDBPyConnection]):
@@ -90,8 +90,6 @@ def close_db_connection(conn: Optional[duckdb.DuckDBPyConnection]):
 
 
 # --- Fonctions d'Interaction avec les Données ---
-
-
 def save_results_to_db(conn: duckdb.DuckDBPyConnection, results: List[Dict[str, Any]]):
     """
     Sauvegarde une liste de résultats de produits dans la base de données.
