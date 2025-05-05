@@ -135,7 +135,7 @@ Pour lancer l'application sur votre poste :
 1.  **Charger les données (section 1)**
     *   Uploadez un ou plusieurs fichiers CSV. L'application les combine automatiquement.
 
-2.  **Analyser et préparer (section 1.5) - NOUVEAU !**
+2.  **Analyser et préparer (section 1.5)**
     *   Visualisez les **statistiques clés** (lignes, colonnes, valeurs manquantes via graphique).
     *   **Optionnel:** Choisissez de **retirer les colonnes** jugées peu utiles (ex: >95% vides).
     *   **Optionnel:** Choisissez de **retirer les lignes** où la description produit est manquante.
