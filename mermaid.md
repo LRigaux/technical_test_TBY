@@ -3,136 +3,111 @@
   init: {
     'theme': 'base',
     'themeVariables': {
-      'primaryColor': '#F8F3EE',        
-      'secondaryColor': '#E8CBB6',
-      'tertiaryColor': '#D4A58B',
-      'mainBkg': '#FFFFFF',            /* White background */
-      'nodeBorder': '#A0522D',         /* Sienna border */
-      'lineColor': '#8B4513',          /* SaddleBrown lines */
-      'textColor': '#333333',          /* Dark text */
-      'actorBkg': '#FFF8DC',          /* Cornsilk for user */
-      'actorBorder': '#D2B48C',        /* Tan */
-      'processBkg': '#ADD8E6',        /* LightBlue for processing */
-      'processBorder': '#4682B4',      /* SteelBlue */
-      'ioBkg': '#90EE90',            /* LightGreen for IO */
-      'ioBorder': '#2E8B57',          /* SeaGreen */
-      'storageBkg': '#FFDAB9',        /* PeachPuff for storage */
-      'storageBorder': '#CD853F',      /* Peru */
-      'externalBkg': '#DDA0DD',        /* Plum for external */
-      'externalBorder': '#BA55D3'      /* MediumOrchid */
+      'primaryColor': '#FFFFFF',        %% Fond blanc
+      'lineColor': '#4285F4',           %% Bleu Google pour les lignes
+      'textColor': '#333333',           %% Texte sombre
+      'clusterBkg': '#F8F9FA',          %% Fond très clair pour les couches
+      'clusterBorder': '#D1D5DB'        %% Bordure grise douce
     }
   }
 }%%
 
-graph TD
-    %% === Styles ===
-    classDef user fill:#FFF8DC,stroke:#D2B48C,stroke-width:2px,color:#5D4037;
-    classDef streamlit fill:#F0F8FF,stroke:#87CEEB,stroke-width:2px,color:#1E90FF;
-    classDef io fill:#E0FFE0,stroke:#2E8B57,stroke-width:2px,color:#006400;
-    classDef processing fill:#E6E6FA,stroke:#6A5ACD,stroke-width:2px,color:#483D8B;
-    classDef storage fill:#FFF0F5,stroke:#DB7093,stroke-width:2px,color:#C71585;
-    classDef external fill:#FAFAD2,stroke:#BDB76B,stroke-width:2px,color:#808000;
-    classDef config fill:#F5F5DC,stroke:#B8860B,stroke-width:1px,color:#8B4513;
-    classDef workflow fill:#FFFACD,stroke:#FFD700,stroke-width:2px,color:#DAA520;
+graph TD;
+  direction RL;
+    %% === Style Definitions ===
+    classDef user fill:#4285F4,stroke:#1A73E8,stroke-width:2px,color:white;
+    classDef frontend fill:#E8F0FE,stroke:#8AB4F8,stroke-width:1px,color:#333;
+    classDef backend fill:#E6F4EA,stroke:#5BB974,stroke-width:1px,color:#333;
+    classDef datalayer fill:#FDF4E7,stroke:#F9AB00,stroke-width:1px,color:#333;
+    classDef storage fill:#F1F3F4,stroke:#B0B5BB,stroke-width:1px,color:#000;
 
-    %% === Actors & UI ===
-    U["Utilisateur The Bradery"]:::user
-    App["Interface Streamlit (app.py)"]:::streamlit
+    %% === User -> Frontend ===
+    U --> |Intéragit| UI_Main;
 
-    %% === Inputs ===
-    CSV["Fichiers CSV Produits"]:::io
-    Sidebar["Barre Latérale: Config."]:::streamlit
-    PromptFile["prompt.txt"]:::config
-    SecretsFile["secrets.toml"]:::config
-    ConfigFile["config.py"]:::config
+    %% === Architecture Layers ===
 
-    %% === Processing Core ===
-    LaunchButton["Lancer Traitement"]:::streamlit
-    StatusDisplay["Statut Workflow (st.status)"]:::streamlit
-    LGSubgraph["Workflow LangGraph (app_graph)"]:::workflow
+    U[/"👤<br>Utilisateur<br>(The Bradery)"/]:::user;
 
-    %% === External Services / Local Tools ===
-    GoogleAPI["Google AI API (Gemini/Gemma)"]:::external
-    ImageURLs["URLs Images Source"]:::external
-    ImageProc["Processeur Image (Pillow/rembg)"]:::processing
-
-    %% === Storage ===
-    DuckDB["DuckDB (product_data.duckdb)"]:::storage
-    ProcessedImagesStore["Dossier processed_images/"]:::storage
-
-    %% === Outputs ===
-    ResultsDisplay["Affichage Résultats (Expanders)"]:::streamlit
-    ExportButton["Exporter CSV"]:::io
-    HistoryDisplay["Tableau Historique DB"]:::streamlit
-
-    %% === Workflow ===
-    U -- Interagit --> App
-
-    subgraph Configuration
-        Sidebar -- Lit --> PromptFile
-        Sidebar -- Lit --> ConfigFile
-        App -- Lit --> SecretsFile --> GoogleAPIKey["Clé API Google"]:::config
-        GoogleAPIKey -- Utilisée par --> InitLLM["Initialisation LLM (get_llm_client_cached)"]:::processing
-        InitLLM -- Crée --> LLMClient["Client LLM Google"]:::external
-    end
-
-    subgraph Chargement
+    subgraph "Frontend"
         direction TB
-        App -- Bouton Upload --> CSV
-        CSV -- Fichiers --> LoadData["app.py: load_and_combine_csvs"]:::processing
-        LoadData -- DataFrame Combiné --> DataEditor["Tableau Interactif (st.data_editor)"]:::streamlit
-        App -- Affiche/Modifie --> DataEditor
-        U -- Sélectionne Lignes --> DataEditor
+        UI_Main["Application Streamlit<br>(app.py)"]:::frontend;
+        UI_Sidebar["Configuration<br>(Sidebar: Modèle, Prompt, Image Opts)"]:::frontend;
+        UI_Upload["1 Upload CSV"]:::frontend;
+        UI_Analysis["1.5 Affichage Analyse<br>& Options Nettoyage"]:::frontend;
+        UI_Select["2 Prévisualisation & Sélection<br>(Tableau Interactif)"]:::frontend;
+        UI_Status["3 Suivi Workflow<br>(st.status)"]:::frontend;
+        UI_Results["4 Affichage Résultats<br>(Texte & Images)"]:::frontend;
+        UI_History["📚 Affichage Historique"]:::frontend;
+        UI_Export["Exporter CSV"]:::frontend;
+
+        %% Frontend Flow
+        UI_Main --> UI_Sidebar;
+        UI_Main --> UI_Upload;
+        UI_Upload --> UI_Analysis;
+        UI_Analysis --> UI_Select;
+        UI_Select --> UI_Status;
+        UI_Status --> UI_Results;
+        UI_Results --> UI_Export;
+        UI_Main --> UI_History;
     end
 
-    subgraph Execution
+    subgraph "Backend"
         direction TB
-        DataEditor -- Lignes Sélectionnées --> LaunchButton
-        U -- Clique --> LaunchButton
-        LaunchButton -- Déclenche --> InvokeStream["app.py: app_graph.stream()"]:::processing
-        InvokeStream -- Prépare --> InitialState["État Initial + Options Sidebar"]:::processing
-        InitialState -- Exécute --> LGSubgraph
-        LGSubgraph -- Événements Stream --> InvokeStream
-        InvokeStream -- Met à jour --> StatusDisplay
-        App -- Affiche --> StatusDisplay
-    end
+        BE_Analysis["Analyse Qualité Données<br>(utils.py)"]:::backend;
+        BE_Preprocessing["Nettoyage Données<br>(si demandé)"]:::backend;
+        BE_LangGraph["Orchestrateur LangGraph<br>(graph_workflow.py)"]:::backend;
 
-    subgraph Workflow
-        direction LR
-        Start((Start)) --> N1["map_selected"]:::processing
-        N1 --> N2["gen_titles"]:::processing
-        N2 -- Demande Titre --> GoogleAPI
-        GoogleAPI -- Réponse Titre --> N2
-        N2 --> N3["enhance_desc"]:::processing
-        N3 -- Demande Description --> GoogleAPI
-        GoogleAPI -- Réponse Description --> N3
-        N3 --> N4["proc_images"]:::processing
-        N4 -- Lit URL --> ImageURLs
-        ImageURLs -- Données Image --> N4
-        N4 -- Traite avec --> ImageProc
-        ImageProc -- Image Traitée --> N4
-        N4 -- Sauvegarde --> ProcessedImagesStore
-        N4 --> N5["aggregate_results"]:::processing
-        N5 --> N6["persist_db"]:::processing
-        N6 -- Sauvegarde --> DuckDB
-        N6 --> EndGraph((End))
-    end
+        subgraph LG[Étapes du LangGraph]
+            direction TB
+            LG_Map["1 Mapper Colonnes"]:::backend;
+            LG_Map --> LG_Title["2 Générer Titre (si besoin)"]:::backend;
+            LG_Title --> LG_Desc["3 Améliorer Description"]:::backend;
+            LG_Desc --> LG_Image["4 Traiter Image (si activé)"]:::backend;
+            LG_Image --> LG_Aggregate["5 Agréger Résultats"]:::backend;
+            LG_Aggregate --> LG_Persist["6 Préparer pour Persistance"]:::backend;
+        end
 
-    subgraph Resultats
+        %% Backend Flow
+        BE_Analysis --> BE_Preprocessing;
+        BE_LangGraph <-.-> LG;
+
+    subgraph "Couche Données & Services"
         direction TB
-        InvokeStream -- État Final Complet --> ProcessResults["app.py: Traite État Final"]:::processing
-        ProcessResults -- Données Formatées --> ResultsDisplay
-        App -- Affiche --> ResultsDisplay
-        ResultsDisplay -- Affiche Images --> ProcessedImagesStore
-        ResultsDisplay -- Bouton Export --> ExportButton
-        U -- Clique --> ExportButton
-        App -- Bouton Historique --> QueryDB["Requête Historique"]:::processing
-        QueryDB -- Lit --> DuckDB
-        DuckDB -- Données Historique --> HistoryDisplay
-        App -- Affiche --> HistoryDisplay
+        DS_GoogleAI["API Google AI<br>(Gemini/Gemma)"]:::datalayer;
+        DS_DuckDB["Base de Données Locale<br>(DuckDB)"]:::storage;
+        DS_LocalStorage["Stockage Fichiers Local<br>(Images Traitées)"]:::storage;
+        DS_DBHandler["Logique Accès DB<br>(db_handler.py)"]:::datalayer;
     end
 
-    %% === Liens Principaux ===
-    Sidebar -- Options --> InvokeStream
-    LLMClient -- Utilisé par --> LGSubgraph
+    %% === Interactions Inter-Couches ===
+
+    
+
+    %% Frontend -> Backend
+    UI_Upload -->|Données chargées| BE_Analysis;
+    UI_Analysis -->|Choix Nettoyage| BE_Preprocessing;
+    UI_Select -->|Données Sélectionnées & Config| BE_LangGraph; 
+    %% Backend -> Data Layer / Services
+    LG_Title -->|Appel LLM| DS_GoogleAI;
+    LG_Desc -->|Appel LLM| DS_GoogleAI;
+    LG_Image -->|Sauvegarde Image| DS_LocalStorage;
+    BE_LangGraph -->|Sauvegarde Finale| DS_DBHandler;
+    DS_DBHandler -->|Écrit/Lit| DS_DuckDB;
+
+    %% Backend -> Frontend (Résultats)
+    BE_LangGraph -->|Progression & État Final| UI_Status;
+    BE_LangGraph -->|Résultats Traités| UI_Results;
+
+    %% Frontend -> Data Layer (Historique)
+    UI_History <-->|Demande Historique| DS_DBHandler;
+
+
+
+    %% === Assign Classes ===
+    class U user;
+    class UI_Main,UI_Sidebar,UI_Upload,UI_Analysis,UI_Select,UI_Status,UI_Results,UI_Export,UI_History frontend;
+    class BE_Analysis,BE_Preprocessing,BE_LangGraph,LG_Map,LG_Title,LG_Desc,LG_Image,LG_Aggregate,LG_Persist backend;
+    class DS_GoogleAI,DS_DBHandler datalayer;
+    class DS_DuckDB,DS_LocalStorage storage;
+end
 ```
