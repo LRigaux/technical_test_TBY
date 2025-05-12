@@ -52,7 +52,7 @@ if "loading_errors" not in st.session_state:
     st.session_state.loading_errors = []
 
 # --- Chargement configuration & secrets ---
-hf_api_key = st.secrets.get("HUGGINGFACEHUB_API_TOKEN")
+# hf_api_key = st.secrets.get("HUGGINGFACEHUB_API_TOKEN")
 google_api_key = st.secrets.get("GOOGLE_API_KEY") # Priorité à Google
 if not os.path.exists(IMAGE_DIR):
     os.makedirs(IMAGE_DIR)
