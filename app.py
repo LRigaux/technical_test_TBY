@@ -58,11 +58,12 @@ if not os.path.exists(IMAGE_DIR):
     os.makedirs(IMAGE_DIR)
 
 # --- Vérification des clés API ---
-if not hf_api_key:
-    st.error(
-        "Veuillez configurer `HUGGINGFACEHUB_API_TOKEN` dans `.streamlit/secrets.toml`"
-    )
-    st.stop()
+#if not hf_api_key:
+#   st.error(
+#       "Veuillez configurer `HUGGINGFACEHUB_API_TOKEN` dans `.streamlit/secrets.toml`"
+#   )
+#   st.stop()
+
 if not google_api_key: 
     st.error("Veuillez configurer `GOOGLE_API_KEY` dans `.streamlit/secrets.toml`")
     st.stop()
